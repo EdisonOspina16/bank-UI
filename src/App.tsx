@@ -1,31 +1,33 @@
 import { useState } from 'react'
+import SignUp from './login'
 
 const NAV_LINKS = ['Personal', 'Empresas', 'Blog', 'Ayuda']
 
 const FEATURES = [
   {
-    tag: 'Tarjetas',
-    title: 'Paga en cualquier moneda sin comisiones',
-    desc: 'Usa tu tarjeta Revolut en cualquier país del mundo. Siempre al tipo de cambio real, sin sorpresas.',
-    img: '💳',
+    title: 'PRESTAMOS',
+    desc: 'Obtén el respaldo que necesitas con opciones claras, flexibles y pensadas para tus proyectos.',
+    image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=85',
   },
   {
-    tag: 'Transferencias',
-    title: 'Envía dinero al instante, gratis',
-    desc: 'Transfiere a cualquier persona que use Revolut de forma inmediata y sin costo. A cualquier parte del mundo.',
-    img: '↗',
+    title: 'TARJETAS DE CRÉDITO',
+    desc: 'Compra lo que necesitas con una tarjeta diseñada para acompañar tu día a día.',
+    image: 'https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=800&q=85',
   },
   {
-    tag: 'Divisas',
-    title: 'Cambia divisas al tipo de cambio real',
-    desc: 'Sin márgenes, sin comisiones ocultas. La tasa que ves es la tasa que obtienes.',
-    img: '⇄',
+    title: 'TMR DEL DÍA SI COMPRO EN DÓLARES',
+    desc: 'Consulta el tipo de cambio del día y conoce cuánto pagarás cuando compres en dólares.',
+    image: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?auto=format&fit=crop&w=800&q=85',
   },
   {
-    tag: 'Cripto',
-    title: 'Compra y vende criptomonedas fácilmente',
-    desc: 'Accede a Bitcoin, Ethereum y más desde la misma app. Rápido, seguro y sin complicaciones.',
-    img: '₿',
+    title: 'TARJETA DE CRÉDITO CONDICIONES ESPECÍFICAS',
+    desc: 'Encuentra una opción que se ajuste a tus necesidades, con condiciones transparentes desde el inicio.',
+    image: 'https://images.unsplash.com/photo-1556740738-b6a63e27c4df?auto=format&fit=crop&w=800&q=85',
+  },
+  {
+    title: 'TARJETA VIRTUAL COMO SE REPRESENTA',
+    desc: 'Visualiza y administra tu tarjeta virtual desde la app para comprar de forma rápida y segura.',
+    image: 'https://images.unsplash.com/photo-1563013544-824ae1b704d3?auto=format&fit=crop&w=800&q=85',
   },
 ]
 
@@ -33,7 +35,7 @@ const PLANS = [
   {
     name: 'Estándar',
     price: 'Gratis',
-    features: ['Tarjeta virtual', 'Cambio hasta $1.000/mes', 'Transferencias gratis a Revolut'],
+    features: ['Tarjeta virtual', 'Cambio hasta $1.000/mes', 'Transferencias gratis a Jes Bank'],
     cta: 'Empezar gratis',
     highlight: false,
   },
@@ -55,17 +57,18 @@ const PLANS = [
   },
 ]
 
-function Navbar() {
+function Navbar({ onEnter }: { readonly onEnter: () => void }) {
   const [open, setOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-white border-b border-black/5">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <a href="#" className="flex items-center gap-1.5">
           <div className="w-7 h-7 bg-black rounded-md flex items-center justify-center">
-            <span className="text-white font-black text-xs">R</span>
+            <span className="text-white font-black text-xs">JB</span>
           </div>
-          <span className="text-black font-bold text-lg tracking-tight">Revolut</span>
+          <span className="text-black font-bold text-lg tracking-tight">Jes Bank</span>
         </a>
 
         <div className="hidden md:flex items-center gap-8">
@@ -77,12 +80,27 @@ function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-4">
-          <a href="#" className="text-sm text-zinc-500 hover:text-black transition-colors font-medium">
-            Iniciar sesión
-          </a>
-          <a href="#" className="px-4 py-2 bg-black text-white text-sm font-semibold rounded-full hover:bg-zinc-800 transition-colors">
-            Abre tu cuenta
-          </a>
+          <div className="relative">
+            <button
+              onClick={() => setAccountOpen(!accountOpen)}
+              aria-expanded={accountOpen}
+              className="flex items-center gap-2 text-sm text-zinc-500 hover:text-black transition-colors font-medium"
+            >
+              Sucursal Virtual
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="m5 7.5 5 5 5-5" />
+              </svg>
+            </button>
+            {accountOpen && (
+              <div className="absolute right-0 top-9 w-44 rounded-xl border border-black/10 bg-white p-2 shadow-lg">
+                <a href="#" className="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 hover:text-black">Personas</a>
+                <a href="#" className="block rounded-lg px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-50 hover:text-black">Empresas</a>
+              </div>
+            )}
+          </div>
+          <button onClick={onEnter} className="px-5 py-2.5 bg-black text-white text-sm font-semibold rounded-full hover:bg-zinc-800 transition-colors">
+            Entrar
+          </button>
         </div>
 
         <button onClick={() => setOpen(!open)} className="md:hidden p-2 text-black">
@@ -103,16 +121,23 @@ function Navbar() {
           {NAV_LINKS.map(l => (
             <a key={l} href="#" className="block text-sm text-zinc-600 hover:text-black font-medium py-1">{l}</a>
           ))}
-          <a href="#" className="block w-full text-center py-3 bg-black text-white text-sm font-semibold rounded-full mt-4">
-            Abre tu cuenta
-          </a>
+          <div className="border-t border-black/5 pt-4">
+            <p className="text-sm font-semibold text-black mb-2">Personas y empresas</p>
+            <div className="space-y-2 pl-3">
+              <a href="#" className="block text-sm text-zinc-600 hover:text-black">Personas</a>
+              <a href="#" className="block text-sm text-zinc-600 hover:text-black">Empresas</a>
+            </div>
+          </div>
+          <button onClick={onEnter} className="block w-full text-center py-3 bg-black text-white text-sm font-semibold rounded-full mt-4">
+            Entrar
+          </button>
         </div>
       )}
     </nav>
   )
 }
 
-function Hero() {
+function Hero({ onStart }: { readonly onStart: () => void }) {
   return (
     <section className="pt-32 pb-24 px-6 bg-white">
       <div className="max-w-6xl mx-auto">
@@ -127,12 +152,12 @@ function Hero() {
             Abre una cuenta en minutos. Paga, envía y cambia dinero en cualquier parte del mundo, sin comisiones ocultas.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
-            <a href="#" className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-black text-white text-sm font-semibold rounded-full hover:bg-zinc-800 transition-colors">
+            <button onClick={onStart} className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-black text-white text-sm font-semibold rounded-full hover:bg-zinc-800 transition-colors">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
               </svg>
               App Store
-            </a>
+            </button>
             <a href="#" className="inline-flex items-center justify-center gap-2.5 px-6 py-3.5 border border-black/15 text-black text-sm font-semibold rounded-full hover:border-black/40 transition-colors">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M3.18 23.76a2 2 0 01-.69-1.54V1.77a2 2 0 01.69-1.53l.08-.07 12.45 12.44v.29L3.26 23.84zM20.3 16.1l-4.12-4.12 4.12-4.12 3.4 1.93a2 2 0 010 3.51zM3.18.24L15.62 12.7l-4.12 4.12L3.18.24z" />
@@ -258,26 +283,30 @@ function PhoneSection() {
 
 function FeatureList() {
   return (
-    <section className="py-24 px-6 bg-white">
+    <section className="py-24 px-6 bg-black text-white">
       <div className="max-w-6xl mx-auto">
         <div className="mb-16">
-          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-400 mb-4">Lo que puedes hacer</p>
-          <h2 className="text-4xl lg:text-5xl font-black text-black leading-tight">
+          <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-4">Lo que puedes hacer</p>
+          <h2 className="text-4xl lg:text-5xl font-black text-white leading-tight">
             Una cuenta.<br />Infinitas posibilidades.
           </h2>
         </div>
 
-        <div className="divide-y divide-black/8">
-          {FEATURES.map((f, i) => (
-            <div key={f.tag}
-              className="py-10 grid md:grid-cols-3 gap-6 items-start group hover:bg-zinc-50 -mx-6 px-6 transition-colors cursor-default">
-              <div className="flex items-center gap-4">
-                <span className="text-3xl w-12">{f.img}</span>
-                <span className="text-xs font-semibold uppercase tracking-widest text-zinc-400">{f.tag}</span>
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          {FEATURES.map(f => (
+            <article key={f.title} className="overflow-hidden rounded-[2rem] bg-zinc-900">
+              <div className="h-64 overflow-hidden bg-zinc-800">
+                <img
+                  src={f.image}
+                  alt=""
+                  className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                />
               </div>
-              <h3 className="text-lg font-bold text-black leading-snug">{f.title}</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">{f.desc}</p>
-            </div>
+              <div className="min-h-64 p-6">
+                <h3 className="text-2xl font-black leading-tight text-white">{f.title}</h3>
+                <p className="mt-5 text-base leading-relaxed text-zinc-500">{f.desc}</p>
+              </div>
+            </article>
           ))}
         </div>
       </div>
@@ -456,7 +485,7 @@ function Footer() {
               <div className="w-7 h-7 bg-black rounded-md flex items-center justify-center">
                 <span className="text-white font-black text-xs">R</span>
               </div>
-              <span className="text-black font-bold text-lg">Revolut</span>
+              <span className="text-black font-bold text-lg">Jes Bank</span>
             </div>
             <p className="text-zinc-400 text-sm leading-relaxed">
               Banca digital para el mundo moderno.
@@ -478,7 +507,7 @@ function Footer() {
         </div>
 
         <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 pt-8 border-t border-black/8">
-          <p className="text-zinc-400 text-xs">© 2024 Revolut Ltd. Todos los derechos reservados.</p>
+          <p className="text-zinc-400 text-xs">© 2024 Jes Bank Ltd. Todos los derechos reservados.</p>
           <div className="flex gap-6">
             {['Privacidad', 'Términos', 'Cookies'].map(l => (
               <a key={l} href="#" className="text-zinc-400 hover:text-black text-xs transition-colors">{l}</a>
@@ -491,10 +520,16 @@ function Footer() {
 }
 
 export default function App() {
+  const [showSignUp, setShowSignUp] = useState(false)
+
+  if (showSignUp) {
+    return <SignUp onBack={() => setShowSignUp(false)} onComplete={() => setShowSignUp(false)} />
+  }
+
   return (
     <div className="bg-white">
-      <Navbar />
-      <Hero />
+      <Navbar onEnter={() => setShowSignUp(true)} />
+      <Hero onStart={() => setShowSignUp(true)} />
       <PhoneSection />
       <FeatureList />
       <ExchangeSection />

@@ -17,21 +17,351 @@ const USER = {
   card: { last4: '3902', type: 'Jes Platinum', isBlocked: false },
 };
 
-const TRANSACTIONS = [
-  { id: 1, name: 'Rappi',           category: 'Comidas',          amount: -48_500,   icon: '🛵', color: 'from-orange-500/20 to-orange-600/10', text: 'text-orange-400', date: 'Hoy · 2:14 pm' },
-  { id: 2, name: 'Spotify',         category: 'Entretenimiento',  amount: -9_900,    icon: '🎵', color: 'from-emerald-500/20 to-emerald-600/10', text: 'text-emerald-400', date: 'Hoy · 10:00 am' },
-  { id: 3, name: 'Netflix',         category: 'Streaming',        amount: -22_900,   icon: '🎬', color: 'from-red-500/20 to-red-600/10', text: 'text-red-400', date: 'Ayer · 12:00 am' },
-  { id: 4, name: 'Amazon Prime',    category: 'Compras',          amount: -50_000,   icon: '📦', color: 'from-yellow-500/20 to-yellow-600/10', text: 'text-yellow-400', date: 'Lun · 8:00 am' },
-  { id: 5, name: 'Transferencia',   category: 'Recibido',         amount: +350_000,  icon: '💸', color: 'from-violet-500/20 to-violet-600/10', text: 'text-violet-400', date: 'Dom · 3:45 pm' },
+interface Transaction {
+  id: number;
+  name: string;
+  category: string;
+  amount: number;
+  iconType: string;
+  date: string;
+}
+
+const TRANSACTIONS: Transaction[] = [
+  { id: 1, name: 'Rappi',           category: 'Comidas',          amount: -48_500,   iconType: 'rappi', date: 'Hoy · 2:14 pm' },
+  { id: 2, name: 'Spotify',         category: 'Entretenimiento',  amount: -9_900,    iconType: 'spotify', date: 'Hoy · 10:00 am' },
+  { id: 3, name: 'Netflix',         category: 'Streaming',        amount: -22_900,   iconType: 'netflix', date: 'Ayer · 12:00 am' },
+  { id: 4, name: 'Amazon Prime',    category: 'Compras',          amount: -50_000,   iconType: 'amazon', date: 'Lun · 8:00 am' },
+  { id: 5, name: 'Transferencia',   category: 'Recibido',         amount: +350_000,  iconType: 'transfer', date: 'Dom · 3:45 pm' },
 ];
 
-type ActiveTool = 'dashboard' | 'simulator' | 'send' | 'receive' | 'exchange';
+type View = 'home' | 'prestamos' | 'tarjetas' | 'tmr' | 'simulacion' | 'condiciones' | 'virtual' | 'comprobante';
 
 const copFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const usdFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
 const copFmtFull = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 });
 
-// ─── Sub-components ────────────────────────────────────────────────────────────
+// ─── SVG Icons collection (Nu Bank inspired monochrome style) ────────────────
+
+const Icons = {
+  home: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <polyline points="9 22 9 12 15 12 15 22" />
+    </svg>
+  ),
+  prestamos: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="1" x2="12" y2="23" />
+      <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+    </svg>
+  ),
+  tarjetas: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="1" y="4" width="22" height="16" rx="2" ry="2" />
+      <line x1="1" y1="10" x2="23" y2="10" />
+    </svg>
+  ),
+  tmr: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <line x1="2" y1="12" x2="22" y2="12" />
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+    </svg>
+  ),
+  simulacion: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+      <line x1="9" y1="22" x2="9" y2="16" />
+      <line x1="8" y1="6" x2="16" y2="6" />
+      <line x1="16" y1="22" x2="16" y2="16" />
+      <line x1="4" y1="16" x2="20" y2="16" />
+      <line x1="4" y1="11" x2="20" y2="11" />
+    </svg>
+  ),
+  virtual: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+      <line x1="12" y1="18" x2="12.01" y2="18" />
+      <rect x="8" y="6" width="8" height="5" rx="0.5" />
+    </svg>
+  ),
+  condiciones: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  ),
+  bell: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  ),
+  check: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12" />
+    </svg>
+  ),
+  warning: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <line x1="12" y1="9" x2="12" y2="13" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
+    </svg>
+  ),
+  deposit: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3v13M19 9l-7 7-7-7M5 20h14" />
+    </svg>
+  ),
+  send: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m5 12 14-7-7 14-2-7z" />
+    </svg>
+  ),
+  withdraw: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="10" rx="2" />
+      <path d="M12 2v9M8 6l4-4 4 4" />
+    </svg>
+  ),
+  chevronRight: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  ),
+  chevronDown: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  ),
+  back: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="19" y1="12" x2="5" y2="12" />
+      <polyline points="12 19 5 12 12 5" />
+    </svg>
+  )
+};
+
+function getTransactionIcon(type: string) {
+  switch (type) {
+    case 'rappi':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M21 7.5H3" />
+          <path d="M7.5 21V7.5" />
+          <path d="M16.5 21V7.5" />
+        </svg>
+      );
+    case 'spotify':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M9 18V5l12-2v13" />
+          <circle cx="6" cy="18" r="3" />
+          <circle cx="18" cy="16" r="3" />
+        </svg>
+      );
+    case 'netflix':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <polygon points="5 3 19 12 5 21 5 3" />
+        </svg>
+      );
+    case 'amazon':
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+          <polyline points="3.27 6.96 12 12.01 20.73 6.96" />
+          <line x1="12" y1="22.08" x2="12" y2="12" />
+        </svg>
+      );
+    case 'transfer':
+    default:
+      return (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13" />
+          <polygon points="22 2 15 22 11 13 2 9 22 2" />
+        </svg>
+      );
+  }
+}
+
+// ─── MODAL COMPONENTS ─────────────────────────────────────────────────────────
+
+function DepositModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white border border-black/8 rounded-[2rem] p-6 max-w-sm w-full shadow-lg text-black space-y-4 animate-fade-in">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Depositar dinero</h3>
+          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-black transition-colors font-bold text-xs cursor-pointer">
+            ✕
+          </button>
+        </div>
+        <p className="text-xs text-zinc-500 leading-relaxed font-semibold">
+          Puedes transferir a tu cuenta Jes Bank desde cualquier banco en Colombia usando los siguientes datos:
+        </p>
+        <div className="bg-zinc-50 border border-black/5 rounded-2xl p-4 space-y-2 text-xs font-semibold">
+          <div className="flex justify-between">
+            <span className="text-zinc-400">Banco:</span>
+            <span className="font-bold text-black">Jes Bank</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-zinc-400">Tipo de cuenta:</span>
+            <span className="font-bold text-black">Ahorros</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-zinc-400">Número de cuenta:</span>
+            <span className="font-bold text-black font-mono">4821 9302 4821</span>
+          </div>
+        </div>
+        <div className="flex flex-col items-center py-2">
+          {/* Mock QR */}
+          <div className="grid grid-cols-5 gap-1.5 p-3.5 bg-white border border-black/8 rounded-xl shadow-sm">
+            {[...Array(25)].map((_, i) => (
+              <div key={i} className={`w-3.5 h-3.5 ${((i + 3) % 4 === 0 || (i % 3 === 0 && i > 5)) ? 'bg-black' : 'bg-transparent'}`} />
+            ))}
+          </div>
+          <span className="text-[10px] text-zinc-400 mt-2.5 font-bold uppercase tracking-wider">Tu código QR</span>
+        </div>
+        <button onClick={onClose} className="w-full py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer">
+          Entendido
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SendModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [phone, setPhone] = useState('');
+  const [amount, setAmount] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccess(true);
+    setTimeout(() => {
+      setSuccess(false);
+      setPhone('');
+      setAmount('');
+      onClose();
+    }, 2500);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white border border-black/8 rounded-[2rem] p-6 max-w-sm w-full shadow-lg text-black space-y-4 animate-fade-in">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Enviar dinero</h3>
+          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-black transition-colors font-bold text-xs cursor-pointer">
+            ✕
+          </button>
+        </div>
+
+        {success ? (
+          <div className="flex flex-col items-center py-6 space-y-2">
+            <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-black font-black text-lg">
+              {Icons.check}
+            </div>
+            <p className="text-sm font-bold text-black">¡Envío Exitoso!</p>
+            <p className="text-xs text-zinc-400 text-center font-semibold">El dinero ha sido debitado y enviado con éxito.</p>
+          </div>
+        ) : (
+          <form onSubmit={handleSend} className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Número de Celular</label>
+              <input
+                type="tel"
+                required
+                placeholder="300 123 4567"
+                value={phone}
+                onChange={e => setPhone(e.target.value)}
+                className="w-full p-3 bg-zinc-50 border border-black/8 rounded-xl outline-none focus:border-black/30 text-xs font-semibold"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Monto a Enviar (COP)</label>
+              <input
+                type="number"
+                required
+                placeholder="Ej. 50000"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                className="w-full p-3 bg-zinc-50 border border-black/8 rounded-xl outline-none focus:border-black/30 text-xs font-semibold"
+              />
+            </div>
+            <button type="submit" className="w-full py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer mt-2">
+              Confirmar Envío
+            </button>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function WithdrawModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleGenerate = () => {
+    setLoading(true);
+    setTimeout(() => {
+      const generated = Math.floor(100000 + Math.random() * 900000).toString().replace(/(\d{3})(\d{3})/, '$1 $2');
+      setCode(generated);
+      setLoading(false);
+    }, 1200);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white border border-black/8 rounded-[2rem] p-6 max-w-sm w-full shadow-lg text-black space-y-4 animate-fade-in">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Retirar sin tarjeta</h3>
+          <button onClick={onClose} className="p-1 text-zinc-400 hover:text-black transition-colors font-bold text-xs cursor-pointer">
+            ✕
+          </button>
+        </div>
+        <p className="text-xs text-zinc-500 leading-relaxed font-semibold">
+          Genera un código temporal para retirar dinero en efectivo en cualquier cajero electrónico Jes Bank.
+        </p>
+
+        {code ? (
+          <div className="bg-zinc-50 border border-black/5 rounded-xl p-4 text-center space-y-3">
+            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Código de retiro</span>
+            <p className="text-2xl font-black font-mono tracking-widest text-black">{code}</p>
+            <p className="text-[10px] text-zinc-400 font-semibold">Vence en 30 minutos</p>
+          </div>
+        ) : (
+          <button
+            onClick={handleGenerate}
+            disabled={loading}
+            className="w-full py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            {loading ? 'Generando código...' : 'Generar código de retiro'}
+          </button>
+        )}
+
+        <button onClick={onClose} className="w-full py-3 border border-black/15 text-black hover:border-black/30 text-xs font-bold rounded-xl transition-colors cursor-pointer">
+          Cancelar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── SUB-COMPONENTS ────────────────────────────────────────────────────────────
 
 function CreditCard({ blocked, onToggleBlock }: { blocked: boolean; onToggleBlock: () => void }) {
   const [flipped, setFlipped] = useState(false);
@@ -50,14 +380,13 @@ function CreditCard({ blocked, onToggleBlock }: { blocked: boolean; onToggleBloc
         >
           {/* FRONT */}
           <div
-            className="absolute inset-0 rounded-[2rem] overflow-hidden flex flex-col justify-between p-6 shadow-2xl"
+            className="absolute inset-0 rounded-[2rem] overflow-hidden flex flex-col justify-between p-6 shadow-xl border border-white/10"
             style={{ backfaceVisibility: 'hidden' }}
           >
-            {/* Gradient background */}
+            {/* Matte Black / Silver premium theme */}
             <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
-            {/* Decorative rings */}
-            <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-violet-600/20 blur-2xl" />
-            <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-indigo-600/15 blur-2xl" />
+            <div className="absolute -top-16 -right-16 w-48 h-48 rounded-full bg-white/5 blur-2xl" />
+            <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-zinc-500/10 blur-xl" />
             <div className="absolute top-1/2 right-6 w-24 h-24 rounded-full border border-white/5" />
             <div className="absolute top-1/2 right-10 w-16 h-16 rounded-full border border-white/5" />
 
@@ -70,59 +399,59 @@ function CreditCard({ blocked, onToggleBlock }: { blocked: boolean; onToggleBloc
                   </div>
                   <span className="text-white/60 text-[10px] font-bold tracking-widest uppercase">Jes Bank</span>
                 </div>
-                {/* Chip */}
-                <div className="w-10 h-7 rounded-md bg-gradient-to-br from-yellow-300 to-amber-500 flex items-center justify-center shadow-inner">
+                {/* Silver Chip */}
+                <div className="w-10 h-7 rounded-md bg-gradient-to-br from-zinc-300 to-zinc-500 flex items-center justify-center shadow-inner">
                   <div className="grid grid-cols-2 gap-0.5 p-1">
                     {[...Array(4)].map((_, i) => (
-                      <div key={i} className="w-1.5 h-1 bg-yellow-700/40 rounded-sm" />
+                      <div key={i} className="w-1.5 h-1 bg-zinc-600/40 rounded-sm" />
                     ))}
                   </div>
                 </div>
               </div>
               <div className="flex flex-col items-end gap-1">
-                <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${blocked ? 'border-rose-500/50 text-rose-400 bg-rose-500/10' : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'}`}>
+                <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${blocked ? 'border-zinc-500/50 text-zinc-400 bg-zinc-500/10' : 'border-zinc-300/30 text-white bg-zinc-300/10'}`}>
                   {blocked ? 'BLOQUEADA' : 'ACTIVA'}
                 </div>
                 <svg width="28" height="17" viewBox="0 0 50 30" className="opacity-60">
-                  <circle cx="18" cy="15" r="14" fill="#EB001B" fillOpacity="0.85" />
-                  <circle cx="32" cy="15" r="14" fill="#F79E1B" fillOpacity="0.85" />
-                  <path d="M25 5.7a14 14 0 010 18.6A14 14 0 0125 5.7z" fill="#FF5F00" />
+                  <circle cx="18" cy="15" r="14" fill="#888" fillOpacity="0.85" />
+                  <circle cx="32" cy="15" r="14" fill="#ddd" fillOpacity="0.85" />
+                  <path d="M25 5.7a14 14 0 010 18.6A14 14 0 0125 5.7z" fill="#aaa" />
                 </svg>
               </div>
             </div>
 
             {/* Card number */}
             <div className="relative z-10">
-              <p className="text-sm font-mono text-white/50 tracking-[0.2em] mb-4">
+              <p className="text-sm font-mono text-white/70 tracking-[0.2em] mb-4">
                 {blocked ? '••••  ••••  ••••  ••••' : '••••  ••••  ••••  3902'}
               </p>
               <div className="flex justify-between items-end">
                 <div>
-                  <p className="text-[8px] text-zinc-600 uppercase font-semibold mb-0.5">Titular</p>
-                  <p className="text-xs text-zinc-300 font-semibold tracking-wide">{USER.name.toUpperCase()}</p>
+                  <p className="text-[8px] text-zinc-500 uppercase font-semibold mb-0.5">Titular</p>
+                  <p className="text-xs text-zinc-200 font-semibold tracking-wide">{USER.name.toUpperCase()}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-[8px] text-zinc-600 uppercase font-semibold mb-0.5">Válida hasta</p>
-                  <p className="text-xs text-zinc-300 font-semibold">12/28</p>
+                  <p className="text-[8px] text-zinc-500 uppercase font-semibold mb-0.5">Válida hasta</p>
+                  <p className="text-xs text-zinc-200 font-semibold">12/28</p>
                 </div>
               </div>
               <div className="flex justify-between items-center mt-3">
                 <div>
-                  <p className="text-[8px] text-zinc-600 uppercase font-semibold mb-0.5">Tipo</p>
+                  <p className="text-[8px] text-zinc-500 uppercase font-semibold mb-0.5">Tipo</p>
                   <p className="text-[10px] text-zinc-400 font-bold tracking-wide">{USER.card.type}</p>
                 </div>
-                <p className="text-[9px] text-zinc-600 italic">Toca para ver reverso</p>
+                <p className="text-[9px] text-zinc-500 italic">Toca para ver reverso</p>
               </div>
             </div>
           </div>
 
           {/* BACK */}
           <div
-            className="absolute inset-0 rounded-[2rem] overflow-hidden flex flex-col justify-between p-6 shadow-2xl"
+            className="absolute inset-0 rounded-[2rem] overflow-hidden flex flex-col justify-between p-6 shadow-xl border border-white/10"
             style={{ backfaceVisibility: 'hidden', transform: 'rotateY(180deg)' }}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black" />
-            <div className="absolute -bottom-10 -right-10 w-48 h-48 rounded-full bg-indigo-600/20 blur-2xl" />
+            <div className="absolute -bottom-10 -right-10 w-48 h-48 rounded-full bg-zinc-500/10 blur-2xl" />
 
             {/* Magnetic stripe */}
             <div className="relative z-10 -mx-6 mt-2 h-9 bg-zinc-700/80" />
@@ -130,7 +459,7 @@ function CreditCard({ blocked, onToggleBlock }: { blocked: boolean; onToggleBloc
             <div className="relative z-10 flex flex-col gap-4">
               {/* CVV */}
               <div>
-                <p className="text-[9px] text-zinc-500 uppercase font-semibold mb-1">Código de seguridad (CVV)</p>
+                <p className="text-[9px] text-zinc-400 uppercase font-semibold mb-1">Código de seguridad (CVV)</p>
                 <div className="bg-white/10 rounded-lg px-4 py-2 flex items-center justify-between border border-white/5">
                   <span className="text-white font-mono text-sm tracking-widest">{blocked ? '•••' : '742'}</span>
                   <span className="text-zinc-500 text-[10px]">No compartas</span>
@@ -140,7 +469,7 @@ function CreditCard({ blocked, onToggleBlock }: { blocked: boolean; onToggleBloc
               <div className="flex gap-2">
                 <button
                   onClick={e => { e.stopPropagation(); onToggleBlock(); }}
-                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${blocked ? 'border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10' : 'border-rose-500/40 text-rose-400 hover:bg-rose-500/10'}`}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer border ${blocked ? 'border-zinc-300 text-white hover:bg-white/5' : 'border-zinc-500 text-zinc-400 hover:bg-white/5'}`}
                 >
                   {blocked ? '🔓 Desbloquear' : '🔒 Bloquear'}
                 </button>
@@ -154,7 +483,7 @@ function CreditCard({ blocked, onToggleBlock }: { blocked: boolean; onToggleBloc
             </div>
 
             <div className="relative z-10">
-              <p className="text-[8px] text-zinc-700 leading-relaxed text-center">
+              <p className="text-[8px] text-zinc-600 leading-relaxed text-center">
                 Si esta tarjeta fue comprometida, bloquéala de inmediato desde el portal o comunícate con soporte.
               </p>
             </div>
@@ -208,35 +537,35 @@ function SimulatorTool() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-base font-black">Simulador TRM</h3>
-          <p className="text-[11px] text-zinc-500 mt-0.5">Calcula el costo real de tu compra en dólares</p>
+          <h3 className="text-base font-black text-black">Simulador TRM</h3>
+          <p className="text-[11px] text-zinc-400 mt-0.5 font-medium">Calcula el costo real de tu compra en dólares</p>
         </div>
-        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-full border border-emerald-500/20">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping inline-block" />
+        <div className="flex items-center gap-1.5 text-[10px] font-semibold text-black bg-zinc-100 px-2.5 py-1 rounded-full border border-black/5 animate-pulse">
+          <span className="w-1.5 h-1.5 rounded-full bg-black inline-block" />
           En vivo
         </div>
       </div>
 
       {/* Success banner */}
       {successBanner && rateData && (
-        <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl animate-fade-in flex items-center gap-2">
-          <span className="text-emerald-400 text-sm">✓</span>
-          <span className="text-xs font-semibold text-emerald-400">TRM actualizada · {rateData.date}</span>
+        <div className="p-3 bg-zinc-50 border border-black/8 rounded-xl animate-fade-in flex items-center gap-2 text-zinc-800">
+          <span className="text-black text-sm">{Icons.check}</span>
+          <span className="text-xs font-bold">TRM actualizada · {rateData.date}</span>
         </div>
       )}
 
       {/* Error banner */}
       {error && (
-        <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl animate-fade-in flex items-start gap-2">
-          <span className="text-rose-400 text-sm mt-0.5">⚠️</span>
-          <p className="text-xs text-rose-300/80 leading-relaxed">{error}</p>
+        <div className="p-3 bg-red-50 border border-red-200 rounded-xl animate-fade-in flex items-start gap-2">
+          <span className="text-red-600 text-sm mt-0.5">{Icons.warning}</span>
+          <p className="text-xs text-red-700 leading-relaxed font-semibold">{error}</p>
         </div>
       )}
 
       {/* Input form */}
       <form onSubmit={handleConsult} className="space-y-3">
-        <div className="rounded-2xl bg-white/5 border border-white/5 p-4 focus-within:border-violet-500/30 transition-all duration-300">
-          <label htmlFor="sim-usd" className="block text-[10px] text-zinc-500 uppercase font-bold mb-1.5 tracking-wider">
+        <div className="rounded-2xl bg-zinc-50 border border-black/8 p-4 focus-within:border-black/30 transition-all duration-300">
+          <label htmlFor="sim-usd" className="block text-[10px] text-zinc-400 uppercase font-bold mb-1.5 tracking-wider">
             Monto en USD
           </label>
           <div className="flex items-center justify-between gap-3">
@@ -247,28 +576,28 @@ function SimulatorTool() {
               placeholder="100.00"
               value={usdAmount}
               onChange={e => { setUsdAmount(e.target.value); setValidationError(null); }}
-              className="text-2xl font-black bg-transparent outline-none flex-1 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              className="text-2xl font-black bg-transparent outline-none flex-1 text-black [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               disabled={loading}
             />
-            <div className="flex items-center gap-1.5 bg-white/10 px-3 py-1.5 rounded-xl border border-white/5 shrink-0">
+            <div className="flex items-center gap-1.5 bg-white border border-black/8 px-3 py-1.5 rounded-xl shrink-0">
               <span className="text-sm">🇺🇸</span>
-              <span className="text-xs font-bold">USD</span>
+              <span className="text-xs font-bold text-black">USD</span>
             </div>
           </div>
         </div>
 
         {validationError && (
-          <p className="text-xs text-rose-400 font-medium px-1 animate-fade-in">{validationError}</p>
+          <p className="text-xs text-red-500 font-medium px-1 animate-fade-in">{validationError}</p>
         )}
 
         <button
           type="submit"
           disabled={loading}
-          className="w-full py-3.5 rounded-2xl bg-white text-black hover:bg-zinc-100 text-sm font-extrabold transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="w-full py-3.5 rounded-2xl bg-black text-white hover:bg-zinc-800 text-sm font-extrabold transition-all duration-200 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {loading ? (
             <>
-              <svg className="animate-spin-custom h-4 w-4 text-black" viewBox="0 0 24 24" fill="none">
+              <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
@@ -280,42 +609,40 @@ function SimulatorTool() {
 
       {/* Results */}
       {loading ? (
-        <div className="space-y-2 animate-pulse-custom">
-          <div className="h-5 bg-white/5 rounded-lg w-2/3" />
-          <div className="h-10 bg-white/5 rounded-xl" />
-          <div className="h-4 bg-white/5 rounded w-full" />
-          <div className="h-4 bg-white/5 rounded w-3/4" />
-          <div className="h-4 bg-white/5 rounded w-full" />
+        <div className="space-y-2 animate-pulse">
+          <div className="h-5 bg-zinc-100 rounded-lg w-2/3" />
+          <div className="h-10 bg-zinc-100 rounded-xl" />
+          <div className="h-4 bg-zinc-100 rounded w-full" />
         </div>
       ) : showResults && rateData ? (
         <div className="space-y-3 animate-fade-in">
           {/* TRM + conversion arrow */}
-          <div className="rounded-2xl bg-zinc-900/60 border border-white/5 p-4">
+          <div className="rounded-2xl bg-zinc-50 border border-black/8 p-4 text-black">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Tasa de cambio</span>
-              <span className="text-[10px] text-zinc-500">{rateData.source}</span>
+              <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Tasa de cambio</span>
+              <span className="text-[10px] text-zinc-400">{rateData.source}</span>
             </div>
             <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-[10px] text-zinc-500">1 USD =</span>
+              <span className="text-[10px] text-zinc-400">1 USD =</span>
               <span className="text-xl font-black">{copFmtFull.format(rateData.rate)}</span>
             </div>
             {/* Conversion flow */}
             <div className="mt-3 flex items-center gap-3">
-              <div className="flex items-center gap-1.5 bg-white/5 px-3 py-2 rounded-xl flex-1 justify-center">
+              <div className="flex items-center gap-1.5 bg-white border border-black/5 px-3 py-2 rounded-xl flex-1 justify-center">
                 <span>🇺🇸</span>
                 <span className="text-xs font-black">{usdFmt.format(parsedUsd)}</span>
               </div>
-              <span className="text-zinc-500">→</span>
-              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 px-3 py-2 rounded-xl flex-1 justify-center">
+              <span className="text-zinc-400">→</span>
+              <div className="flex items-center gap-1.5 bg-zinc-100 border border-black/5 px-3 py-2 rounded-xl flex-1 justify-center">
                 <span>🇨🇴</span>
-                <span className="text-xs font-black text-emerald-400">{copFmt.format(subtotalCop)}</span>
+                <span className="text-xs font-black text-black">{copFmt.format(subtotalCop)}</span>
               </div>
             </div>
           </div>
 
           {/* Invoice breakdown */}
-          <div className="rounded-2xl border border-white/5 bg-zinc-900/30 p-4">
-            <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 mb-3">Resumen de liquidación</h4>
+          <div className="rounded-2xl border border-black/8 bg-zinc-50/50 p-4 text-black">
+            <h4 className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-400 mb-3">Resumen de liquidación</h4>
             <div className="space-y-2 text-xs">
               {[
                 { label: 'Monto base', value: `${usdFmt.format(parsedUsd)} USD` },
@@ -325,25 +652,25 @@ function SimulatorTool() {
               ].map(row => (
                 <div key={row.label} className="flex justify-between">
                   <span className="text-zinc-500">{row.label}</span>
-                  <span className="text-zinc-300 font-mono">{row.value}</span>
+                  <span className="text-zinc-800 font-mono font-medium">{row.value}</span>
                 </div>
               ))}
-              <div className="flex justify-between border-t border-white/5 pt-2 mt-1">
-                <span className="font-bold text-white text-sm">Total debitado</span>
-                <span className="font-black text-emerald-400 text-sm font-mono">{copFmt.format(totalDebitCop)}</span>
+              <div className="flex justify-between border-t border-black/8 pt-2 mt-1">
+                <span className="font-bold text-black text-sm">Total debitado</span>
+                <span className="font-black text-black text-sm font-mono">{copFmt.format(totalDebitCop)}</span>
               </div>
             </div>
           </div>
 
           <button
             onClick={handleReset}
-            className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs font-bold transition-all duration-200 border border-white/5 cursor-pointer"
+            className="w-full py-3 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-black text-xs font-bold transition-all duration-200 border border-black/5 cursor-pointer"
           >
             Simular otra compra
           </button>
 
-          <p className="text-[9px] text-zinc-700 text-center leading-relaxed px-2">
-            La TRM mostrada corresponde a la tasa vigente de DolarAPI. El valor aplicado por el banco puede variar según la franquicia (Visa/Mastercard), la fecha de procesamiento y las políticas internas.
+          <p className="text-[9px] text-zinc-400 text-center leading-relaxed px-2 font-medium">
+            La TRM mostrada corresponde a la tasa de cambio vigente. El valor real procesado podría diferir levemente en base a las políticas de tu franquicia.
           </p>
         </div>
       ) : null}
@@ -351,404 +678,977 @@ function SimulatorTool() {
   );
 }
 
-function ComingSoon({ label }: { label: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-zinc-500">
-          <circle cx="12" cy="12" r="10" /><path d="M12 8v4l2 2" />
-        </svg>
+// ─── VIEW: COMPROBANTE (tipo Nequi) ───────────────────────────────
+interface ComprobanteViewProps {
+  onBack: () => void;
+  transaction?: Transaction | null;
+}
+
+function ComprobanteView({ onBack, transaction }: ComprobanteViewProps) {
+  const ref = 'REV' + Math.random().toString(36).substring(2, 9).toUpperCase();
+  const now = new Date();
+  const fecha = now.toLocaleDateString('es-CO', {
+    day: '2-digit', month: 'long', year: 'numeric',
+  });
+  const hora = now.toLocaleTimeString('es-CO', {
+    hour: '2-digit', minute: '2-digit',
+  });
+
+  const displayAmount = transaction
+    ? copFmt.format(Math.abs(transaction.amount))
+    : '$70.000';
+
+  const displayPaidAt = transaction ? `${transaction.name} Colombia` : 'Rappi Colombia';
+  const displayDate = transaction ? transaction.date : `${fecha} · ${hora}`;
+
+  // Mini QR made of divs
+  function MiniQR() {
+    const pattern = [
+      [1,1,1,0,1,0,1,1,1],
+      [1,0,1,0,0,0,1,0,1],
+      [1,0,1,1,1,0,1,0,1],
+      [1,1,1,0,0,1,1,1,1],
+      [0,0,0,1,0,1,0,0,0],
+      [1,0,1,0,1,0,1,1,0],
+      [1,1,1,0,0,1,0,1,1],
+      [1,0,0,1,0,0,1,0,0],
+      [1,1,0,0,1,0,0,1,1],
+    ];
+    return (
+      <div className="inline-block p-3 bg-white rounded-xl border border-black/8">
+        {pattern.map((row, i) => (
+          <div key={i} className="flex">
+            {row.map((cell, j) => (
+              <div key={j} className={`w-4 h-4 ${cell ? 'bg-black' : 'bg-white'}`} />
+            ))}
+          </div>
+        ))}
       </div>
-      <h3 className="text-sm font-bold text-zinc-300">{label}</h3>
-      <p className="text-xs text-zinc-600 max-w-xs">Esta funcionalidad estará disponible próximamente en tu portal bancario.</p>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-zinc-50 flex flex-col text-black">
+      {/* Header */}
+      <div className="bg-white border-b border-black/6 px-6 h-14 flex items-center gap-4">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-sm font-semibold text-zinc-400 hover:text-black transition-colors">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+            <path d="M10 3L5 8l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+          Volver
+        </button>
+        <h1 className="text-sm font-bold text-black">Detalle del movimiento</h1>
+      </div>
+
+      {/* Receipt */}
+      <div className="flex-1 flex flex-col items-center justify-start py-8 px-4">
+        <div className="w-full max-w-sm">
+          {/* Status badge */}
+          <div className="flex flex-col items-center mb-6">
+            <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-3">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M20 6L9 17l-5-5" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <h2 className="text-xl font-black text-black">¡Pago exitoso!</h2>
+            <p className="text-sm text-zinc-400 mt-1">Tu transacción fue procesada</p>
+          </div>
+
+          {/* Ticket card */}
+          <div className="bg-white rounded-3xl overflow-hidden shadow-sm border border-black/6 relative">
+            {/* Ticket notch top */}
+            <div className="absolute top-0 left-0 right-0 flex justify-between px-3 -translate-y-1/2 pointer-events-none" style={{top: '38%'}}>
+              <div className="w-5 h-5 rounded-full bg-zinc-50 border border-black/6" />
+              <div className="w-5 h-5 rounded-full bg-zinc-50 border border-black/6" />
+            </div>
+
+            {/* Top section: amount */}
+            <div className="px-7 pt-7 pb-5 text-center border-b border-dashed border-black/10">
+              <p className="text-xs text-zinc-400 mb-1">Monto pagado</p>
+              <p className="text-4xl font-black text-black">{displayAmount}</p>
+              <p className="text-xs text-zinc-400 mt-1">COP</p>
+            </div>
+
+            {/* QR */}
+            <div className="flex flex-col items-center py-5 border-b border-dashed border-black/10">
+              <MiniQR />
+              <p className="text-xs text-zinc-400 mt-3">Escanea para validar este comprobante</p>
+            </div>
+
+            {/* Details */}
+            <div className="px-7 py-5 space-y-4">
+              {[
+                { label: 'Pagado en', val: displayPaidAt },
+                { label: 'Fecha', val: displayDate },
+                { label: 'Referencia', val: ref },
+                { label: 'Origen de los fondos', val: 'Cuenta de ahorros •••• 4821' },
+                { label: 'Estado', val: '✓ Completado' },
+              ].map(({ label, val }) => (
+                <div key={label} className="flex justify-between items-start gap-4">
+                  <span className="text-xs text-zinc-400 flex-shrink-0 pt-px">{label}</span>
+                  <span className="text-xs font-semibold text-black text-right">{val}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Bottom section: ref code */}
+            <div className="mx-7 mb-7 py-3 rounded-xl bg-zinc-50 border border-black/6 text-center">
+              <p className="text-xs text-zinc-400 mb-0.5">Número de referencia</p>
+              <p className="text-sm font-black text-black font-mono tracking-widest">{ref}</p>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-5 space-y-3">
+            <button className="w-full py-3 rounded-full border border-black/15 text-black text-sm font-semibold hover:border-black/40 transition-colors flex items-center justify-center gap-2">
+              <span>↓</span> Descargar comprobante
+            </button>
+            <button className="w-full py-3 rounded-full border border-black/15 text-black text-sm font-semibold hover:border-black/40 transition-colors flex items-center justify-center gap-2">
+              <span>⎘</span> Compartir
+            </button>
+            <button
+              onClick={onBack}
+              className="w-full py-3.5 rounded-full bg-black text-white text-sm font-bold hover:bg-zinc-800 transition-colors"
+            >
+              Listo
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-// ─── MAIN PORTAL ──────────────────────────────────────────────────────────────
-export default function UserPortal() {
-  const router = useRouter();
-  const [activeTool, setActiveTool] = useState<ActiveTool>('dashboard');
-  const [cardBlocked, setCardBlocked] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+// ─── SUB-VIEWS ─────────────────────────────────────────────────────────────────
 
-  const NAV_ITEMS: { id: ActiveTool; label: string; icon: React.ReactNode }[] = [
-    {
-      id: 'dashboard', label: 'Inicio',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" /></svg>,
-    },
-    {
-      id: 'simulator', label: 'Simulador TRM',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /></svg>,
-    },
-    {
-      id: 'send', label: 'Enviar Dinero',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M22 2L11 13" /><path d="M22 2L15 22l-4-9-9-4 20-7z" /></svg>,
-    },
-    {
-      id: 'receive', label: 'Recibir',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2v20M2 12l10 10 10-10" /></svg>,
-    },
-    {
-      id: 'exchange', label: 'Cambiar Divisas',
-      icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M7 16V4m0 0L3 8m4-4l4 4M17 8v12m0 0l4-4m-4 4l-4-4" /></svg>,
-    },
-  ];
-
-  const QUICK_ACTIONS = [
-    { id: 'send' as ActiveTool,     label: 'Enviar',    emoji: '↑', color: 'bg-violet-500/15 border-violet-500/20 hover:bg-violet-500/25' },
-    { id: 'receive' as ActiveTool,  label: 'Recibir',   emoji: '↓', color: 'bg-indigo-500/15 border-indigo-500/20 hover:bg-indigo-500/25' },
-    { id: 'exchange' as ActiveTool, label: 'Cambiar',   emoji: '⇄', color: 'bg-emerald-500/15 border-emerald-500/20 hover:bg-emerald-500/25' },
-    { id: 'simulator' as ActiveTool,label: 'Simular',   emoji: '$', color: 'bg-amber-500/15 border-amber-500/20 hover:bg-amber-500/25' },
+function HomeView({
+  setView,
+  setSelectedTransaction,
+  balanceExpanded,
+  setBalanceExpanded,
+  setShowDeposit,
+  setShowSend,
+  setShowWithdraw,
+}: {
+  setView: (v: View) => void;
+  setSelectedTransaction: (tx: Transaction | null) => void;
+  balanceExpanded: boolean;
+  setBalanceExpanded: (b: boolean) => void;
+  setShowDeposit: (b: boolean) => void;
+  setShowSend: (b: boolean) => void;
+  setShowWithdraw: (b: boolean) => void;
+}) {
+  const MENU_CARDS: { id: View; label: string; desc: string; icon: React.ReactNode }[] = [
+    { id: 'prestamos', label: 'Préstamos', desc: 'Respaldo flexible y claro', icon: Icons.prestamos },
+    { id: 'tarjetas', label: 'Mi Tarjeta', desc: 'Límites y seguridad', icon: Icons.tarjetas },
+    { id: 'tmr', label: 'TMR del día', desc: 'Tasa representativa oficial', icon: Icons.tmr },
+    { id: 'virtual', label: 'Tarjeta virtual', desc: 'CVV dinámico seguro', icon: Icons.virtual },
+    { id: 'simulacion', label: 'Simulador TRM', desc: 'Calcula compras en dólares', icon: Icons.simulacion },
+    { id: 'condiciones', label: 'Condiciones', desc: 'Términos del producto', icon: Icons.condiciones },
   ];
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white flex flex-col font-sans overflow-hidden">
-      {/* Ambient glow backgrounds */}
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute top-0 left-1/3 w-[600px] h-[600px] bg-violet-600/8 rounded-full blur-[140px]" />
-        <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] bg-indigo-600/6 rounded-full blur-[120px]" />
-        <div className="absolute top-1/2 left-0 w-[300px] h-[300px] bg-emerald-600/4 rounded-full blur-[100px]" />
+    <div className="space-y-6">
+      {/* Welcome Message */}
+      <div className="text-left">
+        <p className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Banca Virtual</p>
+        <h1 className="text-2xl font-black tracking-tight text-black mt-0.5">Hola, {USER.name.split(' ')[0]}</h1>
       </div>
 
-      {/* ── TOP NAVBAR ─────────────────────────────────────────────────────── */}
-      <header className="relative z-20 border-b border-white/5 bg-zinc-950/90 backdrop-blur-xl shrink-0">
-        <div className="max-w-screen-xl mx-auto px-4 md:px-8 h-14 flex items-center justify-between">
-          {/* Left: Logo + mobile menu */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => setSidebarOpen(o => !o)}
-              className="md:hidden p-1.5 rounded-lg hover:bg-white/5 transition-colors"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M3 6h18M3 12h18M3 18h18" />
-              </svg>
-            </button>
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
-                <span className="text-black font-black text-[9px]">JB</span>
-              </div>
-              <span className="font-bold text-sm tracking-tight hidden sm:block">Jes Bank <span className="text-zinc-500 font-normal">· Banca Virtual</span></span>
+      {/* Expandable Balance Card */}
+      <div
+        onClick={() => setBalanceExpanded(!balanceExpanded)}
+        className="rounded-[2rem] bg-white border border-black/8 p-6 shadow-sm cursor-pointer select-none transition-all hover:border-black/20"
+      >
+        <div className="flex justify-between items-start">
+          <div>
+            <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1">Saldo disponible</p>
+            <p className="text-4xl font-black text-black tracking-tight">{copFmt.format(USER.balanceCOP)}</p>
+          </div>
+          <button className="w-8 h-8 rounded-full bg-zinc-50 border border-black/5 flex items-center justify-center text-black">
+            {balanceExpanded ? Icons.chevronDown : Icons.chevronRight}
+          </button>
+        </div>
+
+        {balanceExpanded && (
+          <div className="pt-4 border-t border-black/5 mt-4 space-y-2.5 animate-fade-in text-left">
+            <p className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Cuentas Jes Bank</p>
+            <div className="flex justify-between items-center py-0.5">
+              <span className="text-xs text-zinc-500 font-semibold">Dinero en pesos</span>
+              <span className="text-sm font-bold text-black">{copFmt.format(USER.balanceCOP)}</span>
+            </div>
+            <div className="flex justify-between items-center py-0.5">
+              <span className="text-xs text-zinc-500 font-semibold">Dinero en dólares</span>
+              <span className="text-sm font-mono font-bold text-black">
+                {usdFmt.format(USER.balanceUSD)} <span className="text-[10px] font-sans text-zinc-400">USD</span>
+              </span>
             </div>
           </div>
+        )}
+      </div>
 
-          {/* Center: Nav pills (desktop) */}
-          <nav className="hidden md:flex items-center gap-1 bg-white/5 rounded-2xl p-1 border border-white/5">
-            {NAV_ITEMS.map(item => (
-              <button
-                key={item.id}
-                onClick={() => setActiveTool(item.id)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all duration-200 cursor-pointer ${
-                  activeTool === item.id
-                    ? 'bg-white text-black shadow-md'
-                    : 'text-zinc-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <span className={activeTool === item.id ? 'text-black' : 'text-zinc-400'}>{item.icon}</span>
-                {item.label}
-              </button>
-            ))}
-          </nav>
+      {/* Three Main Actions (Depositar, Enviar, Retirar) */}
+      <div className="grid grid-cols-3 gap-3">
+        <button
+          onClick={() => setShowDeposit(true)}
+          className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 text-black transition-all cursor-pointer font-bold text-xs"
+        >
+          <span className="text-black">{Icons.deposit}</span>
+          <span className="text-[10px] text-zinc-600">Depositar</span>
+        </button>
+        <button
+          onClick={() => setShowSend(true)}
+          className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 text-black transition-all cursor-pointer font-bold text-xs"
+        >
+          <span className="text-black">{Icons.send}</span>
+          <span className="text-[10px] text-zinc-600">Enviar</span>
+        </button>
+        <button
+          onClick={() => setShowWithdraw(true)}
+          className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 text-black transition-all cursor-pointer font-bold text-xs"
+        >
+          <span className="text-black">{Icons.withdraw}</span>
+          <span className="text-[10px] text-zinc-600">Retirar</span>
+        </button>
+      </div>
 
-          {/* Right: User avatar + exit */}
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => router.push('/')}
-              className="hidden sm:flex items-center gap-1 text-xs text-zinc-500 hover:text-white transition-colors"
+      {/* Recent Movements (Nu Bank style) */}
+      <div className="rounded-[2rem] border border-black/8 bg-white p-6 shadow-sm">
+        <div className="flex justify-between items-center mb-4 border-b border-black/5 pb-3">
+          <h2 className="text-sm font-bold text-black">Movimientos</h2>
+          <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Ver comprobantes</span>
+        </div>
+        <div className="space-y-1">
+          {TRANSACTIONS.map(tx => (
+            <div
+              key={tx.id}
+              onClick={() => {
+                setSelectedTransaction(tx);
+                setView('comprobante');
+              }}
+              className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors group cursor-pointer border border-transparent hover:border-black/5"
             >
-              Salir
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
-            </button>
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center text-[10px] font-black ring-2 ring-violet-500/30">
-              {USER.initials}
+              <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center text-black shrink-0 border border-black/5">
+                {getTransactionIcon(tx.iconType)}
+              </div>
+              <div className="flex-1 min-w-0 text-left">
+                <p className="text-xs font-bold text-black truncate">{tx.name}</p>
+                <p className="text-[9px] text-zinc-400 font-medium">{tx.category} · {tx.date}</p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className={`text-xs font-black font-mono ${tx.amount > 0 ? 'text-green-600' : 'text-black'}`}>
+                  {tx.amount > 0 ? '+' : ''}{copFmt.format(tx.amount)}
+                </p>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
-      </header>
+      </div>
 
-      {/* ── MOBILE SIDEBAR OVERLAY ────────────────────────────────────────── */}
-      {sidebarOpen && (
-        <div className="fixed inset-0 z-30 md:hidden" onClick={() => setSidebarOpen(false)}>
-          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-          <aside className="absolute top-0 left-0 h-full w-64 bg-zinc-900 border-r border-white/5 p-4 flex flex-col gap-2" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center gap-2 mb-4 mt-1">
-              <div className="w-7 h-7 bg-white rounded-md flex items-center justify-center">
-                <span className="text-black font-black text-[10px]">JB</span>
-              </div>
-              <span className="font-bold text-sm">Jes Bank</span>
-            </div>
-            {NAV_ITEMS.map(item => (
-              <button
-                key={item.id}
-                onClick={() => { setActiveTool(item.id); setSidebarOpen(false); }}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all text-left cursor-pointer ${
-                  activeTool === item.id ? 'bg-white text-black' : 'text-zinc-400 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                {item.icon}
-                {item.label}
-              </button>
-            ))}
-            <div className="mt-auto">
-              <button onClick={() => router.push('/')} className="flex items-center gap-2 text-xs text-zinc-500 hover:text-white transition-colors px-3 py-2 cursor-pointer">
-                Salir del portal →
-              </button>
-            </div>
-          </aside>
+      {/* Descubre Más Section */}
+      <div className="mt-8 pt-6 border-t border-black/5 text-left space-y-4">
+        <div>
+          <p className="text-[9px] text-zinc-400 uppercase font-bold tracking-widest">Descubre más</p>
+          <h2 className="text-base font-black text-black leading-tight mt-0.5">Una cuenta. Infinitas posibilidades.</h2>
         </div>
-      )}
 
-      {/* ── MAIN CONTENT ───────────────────────────────────────────────────── */}
-      <main className="relative z-10 flex-1 overflow-y-auto">
-        <div className="max-w-screen-xl mx-auto px-4 md:px-8 py-6 md:py-8">
-
-          {/* ═══ DASHBOARD VIEW ═══════════════════════════════════════════ */}
-          {activeTool === 'dashboard' && (
-            <div className="space-y-6">
-              {/* Welcome bar */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-xs text-zinc-500 font-medium">Buenos días 👋</p>
-                  <h1 className="text-2xl md:text-3xl font-black tracking-tight mt-0.5">{USER.name}</h1>
-                </div>
-                <div className="text-right hidden sm:block">
-                  <p className="text-[10px] text-zinc-600 uppercase font-semibold">Última conexión</p>
-                  <p className="text-xs text-zinc-400 mt-0.5">Hoy · 10:24 AM</p>
-                </div>
-              </div>
-
-              {/* ─ Main 2-column grid ─ */}
-              <div className="grid lg:grid-cols-12 gap-5">
-
-                {/* LEFT COLUMN */}
-                <div className="lg:col-span-7 space-y-5">
-
-                  {/* Balance hero card */}
-                  <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-white/8 p-6 shadow-xl">
-                    <div className="absolute -top-20 -right-20 w-64 h-64 bg-violet-600/12 rounded-full blur-3xl pointer-events-none" />
-                    <div className="absolute bottom-0 left-0 w-40 h-40 bg-indigo-600/8 rounded-full blur-2xl pointer-events-none" />
-
-                    <div className="relative z-10 flex justify-between items-start mb-6">
-                      <div>
-                        <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-widest mb-1">Saldo disponible</p>
-                        <p className="text-4xl md:text-5xl font-black tracking-tight">{copFmt.format(USER.balanceCOP)}</p>
-                        <p className="text-sm text-zinc-400 mt-1.5 font-mono">{usdFmt.format(USER.balanceUSD)} <span className="text-zinc-600">USD</span></p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/25 text-[10px] font-bold text-emerald-400">
-                          ↑ 12.4% este mes
-                        </div>
-                        <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/5 flex items-center justify-center">
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-zinc-400">
-                            <path d="M3 3h18v4H3zM3 10h18v4H3zM3 17h18v4H3z" />
-                          </svg>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Quick actions */}
-                    <div className="relative z-10 grid grid-cols-4 gap-2">
-                      {QUICK_ACTIONS.map(a => (
-                        <button
-                          key={a.id}
-                          onClick={() => setActiveTool(a.id)}
-                          className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border transition-all duration-200 cursor-pointer ${a.color}`}
-                        >
-                          <span className="text-sm font-bold">{a.emoji}</span>
-                          <span className="text-[10px] font-semibold text-zinc-300">{a.label}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Recent transactions */}
-                  <div className="rounded-[2rem] border border-white/8 bg-zinc-900/30 backdrop-blur-sm p-5">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-sm font-bold">Movimientos recientes</h2>
-                      <button className="text-[11px] text-zinc-500 hover:text-white transition-colors cursor-pointer">Ver todos →</button>
-                    </div>
-                    <div className="space-y-1">
-                      {TRANSACTIONS.map(tx => (
-                        <div
-                          key={tx.id}
-                          className="flex items-center gap-3 p-3 rounded-2xl hover:bg-white/3 transition-colors group cursor-pointer"
-                        >
-                          <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${tx.color} flex items-center justify-center text-base shrink-0 border border-white/5`}>
-                            {tx.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold truncate">{tx.name}</p>
-                            <p className="text-[10px] text-zinc-500">{tx.category} · {tx.date}</p>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className={`text-sm font-black font-mono ${tx.amount > 0 ? 'text-emerald-400' : 'text-white'}`}>
-                              {tx.amount > 0 ? '+' : ''}{copFmt.format(tx.amount)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                {/* RIGHT COLUMN */}
-                <div className="lg:col-span-5 space-y-5">
-
-                  {/* Credit card */}
-                  <div className="rounded-[2rem] border border-white/8 bg-zinc-900/20 backdrop-blur-sm p-5">
-                    <div className="flex justify-between items-center mb-4">
-                      <h2 className="text-sm font-bold">Mi tarjeta</h2>
-                      <span className="text-[10px] text-zinc-500">Toca la tarjeta para girarla</span>
-                    </div>
-                    <CreditCard blocked={cardBlocked} onToggleBlock={() => setCardBlocked(b => !b)} />
-                    {cardBlocked && (
-                      <div className="mt-3 p-2.5 bg-rose-500/10 border border-rose-500/20 rounded-xl flex items-center gap-2">
-                        <span className="text-rose-400 text-xs">🔒</span>
-                        <p className="text-xs text-rose-300/80 font-semibold">Tarjeta temporalmente bloqueada</p>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* TRM Simulator teaser — click to open full tool */}
-                  <button
-                    onClick={() => setActiveTool('simulator')}
-                    className="w-full rounded-[2rem] border border-violet-500/20 bg-gradient-to-br from-violet-600/10 via-indigo-600/5 to-transparent p-5 text-left group transition-all hover:border-violet-500/40 hover:from-violet-600/15 cursor-pointer"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <div>
-                        <p className="text-[10px] text-violet-400 uppercase font-bold tracking-wider">Funcionalidad</p>
-                        <h3 className="text-sm font-black mt-0.5">Simulador TRM</h3>
-                        <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                          Calcula cuánto pagarías en COP por una compra en dólares con la TRM oficial de hoy.
-                        </p>
-                      </div>
-                      <div className="w-10 h-10 rounded-2xl bg-violet-500/15 border border-violet-500/20 flex items-center justify-center shrink-0 group-hover:bg-violet-500/25 transition-colors">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="text-violet-400">
-                          <line x1="12" y1="1" x2="12" y2="23" />
-                          <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-violet-400">
-                      Abrir simulador
-                      <span className="group-hover:translate-x-1 transition-transform">→</span>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ═══ SIMULATOR VIEW ═══════════════════════════════════════════ */}
-          {activeTool === 'simulator' && (
-            <div className="space-y-5">
-              {/* Back breadcrumb */}
-              <button
-                onClick={() => setActiveTool('dashboard')}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer group"
-              >
-                <span className="group-hover:-translate-x-0.5 transition-transform">←</span>
-                Volver al inicio
-              </button>
-
-              <div className="grid lg:grid-cols-12 gap-5">
-                {/* Credit card (left) */}
-                <div className="lg:col-span-5 space-y-5">
-                  <div className="rounded-[2rem] border border-white/8 bg-zinc-900/20 backdrop-blur-sm p-5">
-                    <div className="flex justify-between items-center mb-4">
-                      <div>
-                        <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Tu tarjeta activa</p>
-                        <h2 className="text-sm font-black mt-0.5">Jes Platinum</h2>
-                      </div>
-                      <div className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${cardBlocked ? 'border-rose-500/50 text-rose-400 bg-rose-500/10' : 'border-emerald-500/30 text-emerald-400 bg-emerald-500/10'}`}>
-                        {cardBlocked ? '🔒 BLOQUEADA' : '✓ ACTIVA'}
-                      </div>
-                    </div>
-                    <CreditCard blocked={cardBlocked} onToggleBlock={() => setCardBlocked(b => !b)} />
-                  </div>
-
-                  {/* Balance widget */}
-                  <div className="rounded-[2rem] border border-white/8 bg-zinc-900/20 p-5 space-y-3">
-                    <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Saldo disponible</p>
-                    <div>
-                      <p className="text-2xl font-black">{copFmt.format(USER.balanceCOP)}</p>
-                      <p className="text-xs text-zinc-500 font-mono mt-0.5">{usdFmt.format(USER.balanceUSD)} USD</p>
-                    </div>
-                    <div className="h-px bg-white/5" />
-                    <p className="text-[10px] text-zinc-600 leading-relaxed">
-                      Este saldo podría verse afectado según el valor total simulado.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Simulator tool (right) */}
-                <div className="lg:col-span-7">
-                  <div className="rounded-[2rem] border border-white/8 bg-zinc-900/30 backdrop-blur-md p-6">
-                    <SimulatorTool />
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ═══ OTHER TOOLS ══════════════════════════════════════════════ */}
-          {activeTool === 'send' && (
-            <div>
-              <button onClick={() => setActiveTool('dashboard')} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer mb-5 group">
-                <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Volver
-              </button>
-              <div className="rounded-[2rem] border border-white/8 bg-zinc-900/30 p-6">
-                <ComingSoon label="Enviar Dinero" />
-              </div>
-            </div>
-          )}
-          {activeTool === 'receive' && (
-            <div>
-              <button onClick={() => setActiveTool('dashboard')} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer mb-5 group">
-                <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Volver
-              </button>
-              <div className="rounded-[2rem] border border-white/8 bg-zinc-900/30 p-6">
-                <ComingSoon label="Recibir Dinero" />
-              </div>
-            </div>
-          )}
-          {activeTool === 'exchange' && (
-            <div>
-              <button onClick={() => setActiveTool('dashboard')} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white transition-colors cursor-pointer mb-5 group">
-                <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Volver
-              </button>
-              <div className="rounded-[2rem] border border-white/8 bg-zinc-900/30 p-6">
-                <ComingSoon label="Cambiar Divisas" />
-              </div>
-            </div>
-          )}
-        </div>
-      </main>
-
-      {/* ── BOTTOM MOBILE NAV ─────────────────────────────────────────────── */}
-      <nav className="md:hidden relative z-20 border-t border-white/5 bg-zinc-950/95 backdrop-blur-xl">
-        <div className="flex items-center justify-around h-14 px-2">
-          {NAV_ITEMS.map(item => (
+        {/* Square Cards Grid */}
+        <div className="grid grid-cols-2 gap-3 pb-8">
+          {MENU_CARDS.map(card => (
             <button
-              key={item.id}
-              onClick={() => setActiveTool(item.id)}
-              className={`flex flex-col items-center gap-0.5 py-2 px-2 rounded-xl transition-all cursor-pointer ${
-                activeTool === item.id ? 'text-white' : 'text-zinc-600 hover:text-zinc-400'
-              }`}
+              key={card.id}
+              onClick={() => setView(card.id)}
+              className="aspect-square bg-white border border-black/8 rounded-[1.5rem] p-5 flex flex-col justify-between hover:bg-zinc-50 transition-all text-left shadow-sm hover:scale-[1.01] cursor-pointer"
             >
-              {item.icon}
-              <span className="text-[9px] font-semibold leading-none">{item.label.split(' ')[0]}</span>
+              <div className="w-9 h-9 rounded-xl bg-zinc-50 border border-black/5 flex items-center justify-center text-black">
+                {card.icon}
+              </div>
+              <div>
+                <h3 className="text-xs font-bold text-black">{card.label}</h3>
+                <p className="text-[9px] text-zinc-400 font-medium leading-snug mt-1">{card.desc}</p>
+              </div>
             </button>
           ))}
         </div>
-      </nav>
+      </div>
+    </div>
+  );
+}
 
-      {/* ── LEGAL FOOTER ─────────────────────────────────────────────────── */}
-      <div className="relative z-10 border-t border-white/5 bg-zinc-950 py-4 px-6 hidden md:block">
-        <p className="text-[9px] text-zinc-700 text-center max-w-3xl mx-auto leading-relaxed">
-          © 2026 Jes Bank Ltd. · Simulación bancaria con fines académicos. La TRM corresponde a datos de DolarAPI Colombia y puede variar según la franquicia, fecha de procesamiento y políticas del banco emisor.
+function PrestamosView() {
+  const [amount, setAmount] = useState(5000000);
+  const [months, setMonths] = useState(24);
+  const [showAmortization, setShowAmortization] = useState(false);
+  const [successMessage, setSuccessMessage] = useState(false);
+
+  const interestRate = 0.015; // 1.5% nominal mensual
+  const r = interestRate;
+  const n = months;
+  const p = amount;
+  const monthlyPayment = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
+  const totalRepayment = monthlyPayment * n;
+  const totalInterest = totalRepayment - p;
+
+  const amortizationData = [];
+  let balance = p;
+  for (let i = 1; i <= n; i++) {
+    const interestPart = balance * r;
+    const principalPart = monthlyPayment - interestPart;
+    balance -= principalPart;
+    amortizationData.push({
+      month: i,
+      payment: monthlyPayment,
+      principal: principalPart,
+      interest: interestPart,
+      balance: Math.max(0, balance),
+    });
+  }
+
+  const handleRequest = () => {
+    setSuccessMessage(true);
+    setTimeout(() => setSuccessMessage(false), 5000);
+  };
+
+  return (
+    <div className="space-y-6 text-black">
+      <div className="flex justify-between items-center">
+        <div className="text-left">
+          <h2 className="text-lg font-black text-black">Simulador de Préstamos</h2>
+          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Obtén desembolso inmediato a tasa fija</p>
+        </div>
+        <div className="px-2.5 py-1 rounded-full bg-zinc-100 border border-black/5 text-[9px] font-bold text-black uppercase">
+          Tasa: 1.5% MV
+        </div>
+      </div>
+
+      {successMessage && (
+        <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl animate-fade-in text-xs font-bold flex items-center gap-2">
+          <span className="text-green-700">{Icons.check}</span>
+          <span>¡Desembolso realizado! El dinero ha sido transferido a tu saldo disponible.</span>
+        </div>
+      )}
+
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm space-y-6 text-left">
+        {/* Amount Slider */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Monto</label>
+            <span className="text-base font-black text-black">{copFmt.format(amount)}</span>
+          </div>
+          <input
+            type="range"
+            min="1000000"
+            max="50000000"
+            step="500000"
+            value={amount}
+            onChange={e => setAmount(Number(e.target.value))}
+            className="w-full h-1 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-black"
+          />
+          <div className="flex justify-between text-[9px] text-zinc-400 mt-1 font-semibold">
+            <span>$1'000.000 COP</span>
+            <span>$50'000.000 COP</span>
+          </div>
+        </div>
+
+        {/* Plazo Buttons */}
+        <div>
+          <label className="block text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-2.5">Plazo</label>
+          <div className="grid grid-cols-5 gap-1.5">
+            {[12, 24, 36, 48, 60].map(m => (
+              <button
+                key={m}
+                onClick={() => setMonths(m)}
+                className={`py-2 text-[10px] font-bold rounded-xl transition-all cursor-pointer border ${
+                  months === m
+                    ? 'bg-black text-white border-black'
+                    : 'bg-zinc-50 border-black/5 text-zinc-600 hover:bg-zinc-100'
+                }`}
+              >
+                {m}m
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Amortization projection summary */}
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm space-y-4 text-left">
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Detalles de cuota</h3>
+        <div className="space-y-3">
+          <div>
+            <p className="text-[10px] text-zinc-400 font-medium">Cuota mensual estimada</p>
+            <p className="text-2xl font-black text-black mt-0.5">{copFmtFull.format(monthlyPayment)}</p>
+          </div>
+          <div className="h-px bg-black/5" />
+          <div className="space-y-1.5 text-xs">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Monto base</span>
+              <span className="font-bold text-black">{copFmt.format(amount)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Plazo</span>
+              <span className="font-bold text-black">{months} meses</span>
+            </div>
+            <div className="flex justify-between border-t border-dashed border-black/10 pt-2 mt-2">
+              <span className="text-zinc-500">Total intereses</span>
+              <span className="font-bold text-black">{copFmtFull.format(totalInterest)}</span>
+            </div>
+            <div className="flex justify-between border-t border-black/8 pt-2 mt-2">
+              <span className="font-extrabold text-black">Total a pagar</span>
+              <span className="font-black text-black">{copFmtFull.format(totalRepayment)}</span>
+            </div>
+          </div>
+          <button
+            onClick={handleRequest}
+            className="w-full py-3.5 rounded-xl bg-black text-white hover:bg-zinc-800 text-xs font-bold transition-all cursor-pointer shadow-sm mt-2"
+          >
+            Solicitar Desembolso
+          </button>
+        </div>
+      </div>
+
+      <button
+        onClick={() => setShowAmortization(!showAmortization)}
+        className="w-full py-3 rounded-xl border border-black/15 text-black hover:bg-zinc-50 text-[10px] font-bold transition-all cursor-pointer"
+      >
+        {showAmortization ? 'Ocultar proyecciones' : 'Ver tabla de amortización'}
+      </button>
+
+      {showAmortization && (
+        <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm overflow-hidden animate-fade-in text-left">
+          <h3 className="text-xs font-bold text-black mb-3">Tabla de amortización</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-black/8 text-zinc-400 text-[9px] font-bold uppercase tracking-wider">
+                  <th className="py-2">Mes</th>
+                  <th className="py-2">Cuota</th>
+                  <th className="py-2">Capital</th>
+                  <th className="py-2">Interés</th>
+                  <th className="py-2 text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody className="text-[11px] font-mono text-zinc-600 divide-y divide-black/5">
+                {amortizationData.map(row => (
+                  <tr key={row.month}>
+                    <td className="py-2 font-bold text-black">{row.month}</td>
+                    <td className="py-2">{copFmtFull.format(row.payment)}</td>
+                    <td className="py-2 text-green-600">+{copFmtFull.format(row.principal)}</td>
+                    <td className="py-2 text-red-500">-{copFmtFull.format(row.interest)}</td>
+                    <td className="py-2 text-right text-black font-semibold">{copFmtFull.format(row.balance)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TarjetasView({
+  cardBlocked,
+  setCardBlocked,
+}: {
+  cardBlocked: boolean;
+  setCardBlocked: (b: boolean) => void;
+}) {
+  const [dailyLimit, setDailyLimit] = useState(2500000);
+  const [showNumbers, setShowNumbers] = useState(false);
+
+  return (
+    <div className="space-y-6 text-black">
+      <div className="text-left">
+        <h2 className="text-lg font-black text-black">Mi Tarjeta</h2>
+        <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Controla la seguridad de tu plástico físico</p>
+      </div>
+
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm flex flex-col justify-center text-left">
+        <div className="mb-4 flex justify-between items-center">
+          <span className="text-[10px] font-bold text-black uppercase tracking-wider">Tarjeta Física</span>
+          <span className="text-[9px] text-zinc-400 font-semibold">Toca la tarjeta para ver reverso</span>
+        </div>
+        <CreditCard blocked={cardBlocked} onToggleBlock={() => setCardBlocked(!cardBlocked)} />
+      </div>
+
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm space-y-6 text-left">
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Ajustes de la tarjeta</h3>
+
+        {/* Limit slider */}
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-xs font-bold text-zinc-700">Límite Diario de Compras</label>
+            <span className="text-xs font-black text-black">{copFmt.format(dailyLimit)}</span>
+          </div>
+          <input
+            type="range"
+            min="500000"
+            max="10000000"
+            step="100000"
+            value={dailyLimit}
+            onChange={e => setDailyLimit(Number(e.target.value))}
+            className="w-full h-1 bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-black"
+          />
+          <div className="flex justify-between text-[9px] text-zinc-400 mt-1 font-semibold">
+            <span>$500.000 COP</span>
+            <span>$10'000.000 COP</span>
+          </div>
+        </div>
+
+        <div className="h-px bg-black/5" />
+
+        {/* Safety */}
+        <div className="space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-black">Bloqueo Temporal</p>
+              <p className="text-[9px] text-zinc-400 mt-0.5 font-semibold">Previene cualquier transacción al instante</p>
+            </div>
+            <button
+              onClick={() => setCardBlocked(!cardBlocked)}
+              className={`w-12 h-6 rounded-full p-1 transition-all cursor-pointer ${cardBlocked ? 'bg-black' : 'bg-zinc-200'}`}
+            >
+              <div className={`w-4 h-4 bg-white rounded-full transition-all ${cardBlocked ? 'translate-x-6' : 'translate-x-0'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-black">Mostrar credenciales</p>
+              <p className="text-[9px] text-zinc-400 mt-0.5 font-semibold">Ver números y código CVV en pantalla</p>
+            </div>
+            <button
+              onClick={() => setShowNumbers(!showNumbers)}
+              className="px-3 py-1.5 text-[10px] font-bold rounded-lg border border-black/15 hover:bg-zinc-50 transition-all cursor-pointer text-black"
+            >
+              {showNumbers ? 'Ocultar' : 'Ver datos'}
+            </button>
+          </div>
+        </div>
+
+        {showNumbers && (
+          <div className="p-3.5 bg-zinc-50 border border-black/8 rounded-xl space-y-2 text-xs font-mono animate-fade-in text-black">
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Tarjeta:</span>
+              <span className="font-semibold">4821 9302 4810 3902</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">Expiración:</span>
+              <span className="font-semibold">12/28</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-zinc-500">CVV:</span>
+              <span className="font-semibold">742</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TMRView() {
+  const { rateData, loading, fetchRate } = useExchangeRate();
+  const [usdAmount, setUsdAmount] = useState('100');
+  const [copAmount, setCopAmount] = useState('');
+
+  useState(() => {
+    fetchRate();
+  });
+
+  const rate = rateData?.rate || 4032.50;
+
+  const handleConvertUsd = (val: string) => {
+    setUsdAmount(val);
+    const num = parseFloat(val);
+    if (!isNaN(num)) {
+      setCopAmount((num * rate).toFixed(0));
+    } else {
+      setCopAmount('');
+    }
+  };
+
+  const handleConvertCop = (val: string) => {
+    setCopAmount(val);
+    const num = parseFloat(val);
+    if (!isNaN(num)) {
+      setUsdAmount((num / rate).toFixed(2));
+    } else {
+      setUsdAmount('');
+    }
+  };
+
+  const historyPoints = [3980, 4010, 3990, 4025, 4050, 4030, rate];
+  const maxVal = Math.max(...historyPoints);
+  const minVal = Math.min(...historyPoints);
+  const spread = maxVal - minVal || 100;
+
+  const svgWidth = 500;
+  const svgHeight = 120;
+  const pointsString = historyPoints
+    .map((val, idx) => {
+      const x = (idx / (historyPoints.length - 1)) * svgWidth;
+      const y = svgHeight - 12 - ((val - minVal) / spread) * (svgHeight - 24);
+      return `${x},${y}`;
+    })
+    .join(' ');
+
+  return (
+    <div className="space-y-6 text-black">
+      <div className="flex justify-between items-center">
+        <div className="text-left">
+          <h2 className="text-lg font-black text-black">TMR del Día</h2>
+          <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Indicador oficial para compras en divisa extranjera</p>
+        </div>
+      </div>
+
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm text-left">
+        <div className="flex justify-between items-center mb-3">
+          <div>
+            <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">Histórico</span>
+            <p className="text-sm font-bold text-black mt-0.5">Fluctuación Semanal</p>
+          </div>
+          <button
+            onClick={() => fetchRate()}
+            disabled={loading}
+            className="px-2.5 py-1 text-[9px] font-bold rounded-lg border border-black/10 hover:bg-zinc-50 transition-colors cursor-pointer text-black"
+          >
+            Actualizar
+          </button>
+        </div>
+
+        {/* SVG Chart */}
+        <div className="w-full bg-zinc-50 border border-black/5 rounded-2xl p-4">
+          <svg viewBox={`0 0 ${svgWidth} ${svgHeight}`} className="w-full h-auto overflow-visible">
+            <polyline
+              fill="none"
+              stroke="black"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              points={pointsString}
+            />
+            {historyPoints.map((val, idx) => {
+              const x = (idx / (historyPoints.length - 1)) * svgWidth;
+              const y = svgHeight - 12 - ((val - minVal) / spread) * (svgHeight - 24);
+              return (
+                <circle
+                  key={idx}
+                  cx={x}
+                  cy={y}
+                  r="3.5"
+                  className="fill-black stroke-white stroke-2"
+                />
+              );
+            })}
+          </svg>
+          <div className="flex justify-between text-[9px] text-zinc-400 mt-3 font-bold uppercase tracking-wider">
+            <span>Hace 6d</span>
+            <span>Hace 3d</span>
+            <span className="text-black font-extrabold">Hoy ({copFmt.format(rate)})</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Converter */}
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm space-y-4 text-left">
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">Calculadora de Cambio</h3>
+        <div className="space-y-3">
+          <div className="p-3 bg-zinc-50 border border-black/5 rounded-xl flex justify-between items-center">
+            <div className="flex-1">
+              <label className="block text-[8px] text-zinc-400 font-bold uppercase">Monto USD</label>
+              <input
+                type="number"
+                value={usdAmount}
+                onChange={e => handleConvertUsd(e.target.value)}
+                className="text-base font-black text-black bg-transparent outline-none w-full mt-0.5"
+              />
+            </div>
+            <span className="text-[10px] font-bold text-zinc-500 shrink-0 ml-2">USD 🇺🇸</span>
+          </div>
+
+          <div className="p-3 bg-zinc-50 border border-black/5 rounded-xl flex justify-between items-center">
+            <div className="flex-1">
+              <label className="block text-[8px] text-zinc-400 font-bold uppercase">Total COP</label>
+              <input
+                type="number"
+                value={copAmount}
+                onChange={e => handleConvertCop(e.target.value)}
+                className="text-base font-black text-black bg-transparent outline-none w-full mt-0.5"
+              />
+            </div>
+            <span className="text-[10px] font-bold text-zinc-500 shrink-0 ml-2">COP 🇨🇴</span>
+          </div>
+        </div>
+        <p className="text-[9px] text-zinc-400 font-semibold leading-normal">
+          Conversión basada en TRM oficial {copFmtFull.format(rate)} COP por dólar. Datos provistos por DolarAPI.
         </p>
       </div>
+    </div>
+  );
+}
+
+function SimulacionView() {
+  return (
+    <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm text-left">
+      <SimulatorTool />
+    </div>
+  );
+}
+
+function VirtualCardView() {
+  const [cvv, setCvv] = useState('482');
+  const [timeLeft, setTimeLeft] = useState(45);
+  const [notification, setNotification] = useState('');
+
+  useState(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(t => {
+        if (t <= 1) {
+          const newCvv = Math.floor(100 + Math.random() * 900).toString();
+          setCvv(newCvv);
+          return 60;
+        }
+        return t - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  });
+
+  const handleCopy = (field: string) => {
+    setNotification(`Copiado: ${field}`);
+    setTimeout(() => setNotification(''), 2500);
+  };
+
+  return (
+    <div className="space-y-6 text-black">
+      <div className="text-left">
+        <h2 className="text-lg font-black text-black">Tarjeta Virtual</h2>
+        <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Seguridad mejorada para tus transacciones por internet</p>
+      </div>
+
+      {notification && (
+        <div className="p-2.5 bg-black text-white rounded-xl text-[10px] font-bold animate-fade-in text-center max-w-xs mx-auto">
+          {notification}
+        </div>
+      )}
+
+      {/* Card display */}
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm flex flex-col items-center justify-center">
+        <div className="relative w-full aspect-[1.586/1] rounded-3xl border-2 border-black bg-zinc-50 flex flex-col justify-between p-5 overflow-hidden shadow-md">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-zinc-200/50 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-zinc-200/40 rounded-full blur-xl pointer-events-none" />
+          <div className="absolute inset-0 bg-[radial-gradient(#000000_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03] pointer-events-none" />
+
+          <div className="flex justify-between items-start text-left">
+            <div>
+              <span className="text-[9px] text-zinc-400 font-bold tracking-widest uppercase">Tarjeta Virtual</span>
+              <div className="flex items-center gap-1 mt-0.5">
+                <div className="w-4 h-4 bg-black rounded flex items-center justify-center">
+                  <span className="text-white font-black text-[7px]">JB</span>
+                </div>
+                <span className="text-[11px] font-bold text-black tracking-tight">Jes Bank</span>
+              </div>
+            </div>
+            <span className="px-2 py-0.5 rounded-full text-[8px] font-bold border border-black/10 bg-white text-black">DIGITAL</span>
+          </div>
+
+          <div className="text-left">
+            <p className="text-sm font-mono text-black tracking-wider mb-2.5">4821 7381 2940 1827</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <span className="text-[7px] text-zinc-400 uppercase font-semibold">Titular</span>
+                <p className="text-[9px] font-bold text-black tracking-wide">SARA QUINTERO</p>
+              </div>
+              <div className="flex gap-3">
+                <div>
+                  <span className="text-[7px] text-zinc-400 uppercase font-semibold">Vence</span>
+                  <p className="text-[9px] font-bold text-black">09/29</p>
+                </div>
+                <div>
+                  <span className="text-[7px] text-zinc-400 uppercase font-semibold">CVV</span>
+                  <p className="text-[9px] font-mono font-black text-black">{cvv}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Copy panel */}
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm space-y-5 text-left">
+        <div className="flex justify-between items-center">
+          <h3 className="text-xs font-bold text-black">Credenciales Virtuales</h3>
+          <div className="flex items-center gap-1 text-[9px] font-bold text-zinc-400">
+            <span className="w-1 h-1 rounded-full bg-black animate-pulse inline-block" />
+            CVV rota en: <span className="text-black font-extrabold">{timeLeft}s</span>
+          </div>
+        </div>
+
+        <div className="space-y-2.5">
+          {[
+            { label: 'Número de Tarjeta', value: '4821 7381 2940 1827' },
+            { label: 'Fecha de Expiración', value: '09/29' },
+            { label: 'CVV Dinámico', value: cvv },
+          ].map(item => (
+            <div key={item.label} className="p-3 bg-zinc-50 border border-black/5 rounded-xl flex items-center justify-between">
+              <div>
+                <p className="text-[8px] text-zinc-400 font-bold uppercase tracking-wider">{item.label}</p>
+                <p className="text-xs font-mono font-bold text-black mt-0.5">{item.value}</p>
+              </div>
+              <button
+                onClick={() => handleCopy(item.value)}
+                className="px-2 py-1 rounded-md border border-black/8 hover:bg-zinc-100 text-[9px] font-bold text-zinc-600 cursor-pointer"
+              >
+                Copiar
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CondicionesView() {
+  return (
+    <div className="bg-white border border-black/8 rounded-[2rem] p-6 shadow-sm text-left text-black">
+      <div className="mb-4">
+        <h2 className="text-base font-black text-black">Condiciones de Uso</h2>
+        <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">Términos del portal de simulación Jes Bank</p>
+      </div>
+
+      <div className="h-px bg-black/5 mb-4" />
+
+      <div className="space-y-4 text-xs text-zinc-600 leading-relaxed font-semibold">
+        <section className="space-y-1">
+          <h3 className="text-xs font-bold text-black uppercase tracking-wider">1. Tasas y Simulaciones</h3>
+          <p>
+            Las simulaciones contenidas en este portal corresponden a valores aproximados y no representan una oferta mercantil obligatoria. La tasa de interés cobrada en préstamos de consumo está fijada en 1.5% mensual (19.56% Efectivo Anual). Las tasas de tarjetas de crédito se calculan en base a la tasa de usura de la Superintendencia Financiera de Colombia vigente al momento de la compra.
+          </p>
+        </section>
+
+        <section className="space-y-1">
+          <h3 className="text-xs font-bold text-black uppercase tracking-wider">2. Transacciones Internacionales y TRM</h3>
+          <p>
+            Las compras realizadas en moneda extranjera (USD, EUR, etc.) se procesarán utilizando la TRM (Tasa Representativa del Mercado) fijada por la franquicia emisora de la tarjeta (Visa / Mastercard) en el día hábil en que la transacción sea liquidada por el comercio. Adicionalmente, no se cobrará comisión por conversión internacional a los usuarios del plan Plus o Metal. Los usuarios del plan Estándar podrían incurrir en una comisión del 1.5%.
+          </p>
+        </section>
+
+        <section className="space-y-1">
+          <h3 className="text-xs font-bold text-black uppercase tracking-wider">3. Seguridad y Bloqueo de Tarjeta</h3>
+          <p>
+            Es responsabilidad exclusiva del titular de la cuenta mantener las credenciales de seguridad en estricto secreto. En caso de pérdida, sospecha de fraude o robo, el usuario debe bloquear inmediatamente la tarjeta desde este portal de banca virtual o contactar al servicio de atención al cliente disponible las 24 horas del día.
+          </p>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN PORTAL / DASHBOARD SHELL ──────────────────────────────────────────────
+
+export default function UserPortal() {
+  const router = useRouter();
+  const [view, setView] = useState<View>('home');
+  const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [cardBlocked, setCardBlocked] = useState(false);
+  const [balanceExpanded, setBalanceExpanded] = useState(false);
+
+  // Modal states
+  const [showDeposit, setShowDeposit] = useState(false);
+  const [showSend, setShowSend] = useState(false);
+  const [showWithdraw, setShowWithdraw] = useState(false);
+
+  const onBack = () => {
+    if (view === 'home') {
+      router.push('/');
+    } else {
+      setView('home');
+    }
+  };
+
+  // Comprobante is full-screen, skip layout
+  if (view === 'comprobante') {
+    return <ComprobanteView onBack={() => setView('home')} transaction={selectedTransaction} />;
+  }
+
+  const titles: Record<View, string> = {
+    home: 'Inicio',
+    prestamos: 'Préstamos',
+    tarjetas: 'Tarjetas',
+    tmr: 'TMR del día',
+    simulacion: 'Simulador',
+    condiciones: 'Condiciones',
+    virtual: 'Tarjeta virtual',
+    comprobante: 'Comprobante',
+  };
+
+  return (
+    <div className="min-h-screen bg-zinc-50 text-black font-sans flex flex-col items-center">
+      {/* Centered, app-like wrapper viewport */}
+      <div className="w-full max-w-xl min-h-screen bg-white md:shadow-md md:border-x md:border-black/6 flex flex-col">
+        
+        {/* Header Bar */}
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-black/6 px-6 h-14 flex items-center justify-between shrink-0">
+          <button
+            onClick={onBack}
+            className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-zinc-100 text-black transition-colors cursor-pointer"
+            aria-label="Volver"
+          >
+            {Icons.back}
+          </button>
+          
+          <div className="flex-1 flex justify-center">
+            {view === 'home' ? (
+              <div className="flex items-center gap-1.5">
+                <div className="w-6 h-6 bg-black rounded-md flex items-center justify-center">
+                  <span className="text-white font-black text-[10px]">JB</span>
+                </div>
+                <span className="text-black font-bold text-sm tracking-tight">Jes Bank</span>
+              </div>
+            ) : (
+              <h1 className="text-xs font-bold uppercase tracking-wider text-black">{titles[view]}</h1>
+            )}
+          </div>
+          
+          <div className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-black cursor-pointer">
+            {Icons.bell}
+          </div>
+        </header>
+
+        {/* View Content Area */}
+        <main className="flex-1 px-6 py-6 overflow-y-auto">
+          {view === 'home' && (
+            <HomeView
+              setView={setView}
+              setSelectedTransaction={setSelectedTransaction}
+              balanceExpanded={balanceExpanded}
+              setBalanceExpanded={setBalanceExpanded}
+              setShowDeposit={setShowDeposit}
+              setShowSend={setShowSend}
+              setShowWithdraw={setShowWithdraw}
+            />
+          )}
+          {view === 'prestamos' && <PrestamosView />}
+          {view === 'tarjetas' && (
+            <TarjetasView
+              cardBlocked={cardBlocked}
+              setCardBlocked={setCardBlocked}
+            />
+          )}
+          {view === 'tmr' && <TMRView />}
+          {view === 'simulacion' && <SimulacionView />}
+          {view === 'condiciones' && <CondicionesView />}
+          {view === 'virtual' && <VirtualCardView />}
+        </main>
+      </div>
+
+      {/* Pop-up Modals */}
+      <DepositModal isOpen={showDeposit} onClose={() => setShowDeposit(false)} />
+      <SendModal isOpen={showSend} onClose={() => setShowSend(false)} />
+      <WithdrawModal isOpen={showWithdraw} onClose={() => setShowWithdraw(false)} />
     </div>
   );
 }

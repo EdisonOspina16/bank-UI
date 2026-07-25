@@ -7,7 +7,9 @@ export default function SignUp() {
   const router = useRouter();
   const [step, setStep] = useState<'account' | 'personal' | 'verify'>('account');
   const [form, setForm] = useState({
-    username: '',
+    email: '',
+    phoneCountry: '+57',
+    phoneNumber: '',
     password: '',
     firstName: '',
     lastName: '',
@@ -20,7 +22,8 @@ export default function SignUp() {
   const set = (k: string, v: string) => setForm(f => ({ ...f, [k]: v }));
   const touch = (k: string) => setTouched(t => ({ ...t, [k]: true }));
 
-  const usernameOk = form.username.trim().length >= 3;
+  const emailOk = /\S+@\S+\.\S+/.test(form.email);
+  const phoneOk = /^\d{7,15}$/.test(form.phoneNumber.replace(/\D/g, ''));
   const passwordOk = form.password.length >= 6;
 
   const onBack = () => {
@@ -133,29 +136,56 @@ export default function SignUp() {
                 Ingresa tus datos para crear tu cuenta Jes Bank.
               </p>
 
-              {/* Username */}
-              <div className="mb-6">
-                <div className="flex items-center gap-2.5 border-b border-black/15 pb-2 focus-within:border-black transition-colors group">
+              {/* Email */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2.5 border-b border-black/15 pb-2 focus-within:border-black transition-colors">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-zinc-400 flex-shrink-0">
-                    <circle cx="12" cy="8" r="4"/>
-                    <path d="M4 21a8 8 0 0116 0"/>
+                    <path d="M3 8.5l9 6 9-6" />
+                    <rect x="3" y="5" width="18" height="14" rx="2" />
                   </svg>
                   <input
-                    type="text"
-                    placeholder="Usuario"
-                    value={form.username}
-                    onChange={e => set('username', e.target.value)}
-                    onBlur={() => touch('username')}
+                    type="email"
+                    placeholder="Correo electrónico"
+                    value={form.email}
+                    onChange={e => set('email', e.target.value)}
+                    onBlur={() => touch('email')}
                     className="flex-1 text-sm text-black placeholder-zinc-400 outline-none bg-transparent py-1"
                   />
                 </div>
-                {touched.username && !usernameOk && (
-                  <p className="text-xs text-red-500 mt-1.5">El usuario debe tener al menos 3 caracteres</p>
+                {touched.email && !emailOk && (
+                  <p className="text-xs text-red-500 mt-1.5">Ingresa un correo válido</p>
                 )}
-                {touched.username && usernameOk && (
-                  <p className="text-xs text-zinc-400 mt-1.5">
-                    <button className="font-semibold text-black underline underline-offset-2">¿Olvidaste tu usuario?</button>
-                  </p>
+              </div>
+
+              {/* Phone */}
+              <div className="mb-6">
+                <div className="flex items-center gap-2.5 border-b border-black/15 pb-2 focus-within:border-black transition-colors">
+                  <select
+                    value={form.phoneCountry}
+                    onChange={e => set('phoneCountry', e.target.value)}
+                    className="text-sm text-black outline-none bg-transparent py-1 appearance-none cursor-pointer"
+                  >
+                    <option value="+57">+57 Colombia</option>
+                    <option value="+1">+1 USA</option>
+                    <option value="+52">+52 México</option>
+                    <option value="+34">+34 España</option>
+                    <option value="+54">+54 Argentina</option>
+                  </select>
+                  <span className="text-zinc-400">▾</span>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className="text-zinc-400 flex-shrink-0">
+                    <path d="M22 16.92V20a2 2 0 0 1-2.18 2 19.86 19.86 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.86 19.86 0 0 1 2 4.18 2 2 0 0 1 4 2h3.09a2 2 0 0 1 2 1.72c.12 1.21.45 2.4.97 3.53a2 2 0 0 1-.45 2.11L8.91 11.09a16 16 0 0 0 6 6l1.73-1.73a2 2 0 0 1 2.11-.45c1.13.52 2.32.85 3.53.97A2 2 0 0 1 22 16.92z"/>
+                  </svg>
+                  <input
+                    type="tel"
+                    placeholder="Número de teléfono"
+                    value={form.phoneNumber}
+                    onChange={e => set('phoneNumber', e.target.value)}
+                    onBlur={() => touch('phoneNumber')}
+                    className="flex-1 text-sm text-black placeholder-zinc-400 outline-none bg-transparent py-1"
+                  />
+                </div>
+                {touched.phoneNumber && !phoneOk && (
+                  <p className="text-xs text-red-500 mt-1.5">Ingresa un número válido (mín. 7 dígitos)</p>
                 )}
               </div>
 
@@ -185,7 +215,7 @@ export default function SignUp() {
 
               <button
                 onClick={() => setStep('personal')}
-                disabled={!usernameOk || !passwordOk}
+                disabled={!(emailOk || phoneOk) || !passwordOk}
                 className="w-full py-3.5 rounded-xl bg-black text-white text-sm font-bold transition-all hover:bg-zinc-800 disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 Continuar
@@ -306,7 +336,10 @@ export default function SignUp() {
               <p className="text-sm text-zinc-400 mb-2 leading-relaxed">
                 Ingresa el código de verificación de tu cuenta
               </p>
-              <p className="text-sm font-semibold text-black mb-8">Usuario: {form.username}</p>
+              {(() => {
+                const displayUser = form.email ? form.email : `${form.phoneCountry} ${form.phoneNumber}`;
+                return <p className="text-sm font-semibold text-black mb-8">Cuenta: {displayUser}</p>;
+              })()}
 
               {/* OTP inputs */}
               <div className="flex gap-2.5 justify-center mb-8">

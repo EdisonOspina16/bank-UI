@@ -639,7 +639,7 @@ export default function App() {
   const router = useRouter();
 
   const handleEnter = () => {
-    router.push('/login');
+    router.push('/auth/login');
   };
 
   return (

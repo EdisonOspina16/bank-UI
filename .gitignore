@@ -3,3 +3,5 @@ dist/
 .env
 .next/
 .figma/
+.env.local
+.env.production

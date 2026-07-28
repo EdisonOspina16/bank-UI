@@ -157,7 +157,7 @@ export default function CompanyDashboard({ user, onLogout }: CompanyDashboardPro
                   <p className="text-[10px] text-zinc-400 font-bold mt-0.5">NIT: {user.docNumber}</p>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-zinc-950 flex items-center justify-center text-xs font-bold text-white border border-black/5">
-                  {user.firstName[0]?.toUpperCase() ?? 'E'}
+                  {user.firstName?.[0]?.toUpperCase() ?? 'E'}
                 </div>
               </div>
 

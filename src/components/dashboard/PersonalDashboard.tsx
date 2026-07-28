@@ -252,7 +252,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                   <h1 className="text-2xl font-black tracking-tight text-black mt-0.5">Hola, {user.firstName}</h1>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-black border border-black/5">
-                  {user.firstName[0]}{user.lastName[0]}
+                  {user.firstName?.[0] ?? 'U'}{user.lastName?.[0] ?? 'B'}
                 </div>
               </div>
 
@@ -630,7 +630,7 @@ function VirtualCardInnerView({ user }: { user: any }) {
             <div className="flex justify-between text-[9px]">
               <div>
                 <p className="text-[7px] text-zinc-400">Titular</p>
-                <p className="font-bold">{user.firstName.toUpperCase()} {user.lastName.toUpperCase()}</p>
+                <p className="font-bold">{(user.firstName ?? 'Usuario').toUpperCase()} {(user.lastName ?? 'Banco').toUpperCase()}</p>
               </div>
               <div className="flex gap-4">
                 <div>

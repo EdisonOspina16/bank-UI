@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
+import { useLoanSimulator } from '../../hooks/useLoanSimulator';
 
 // ─── Developer-adjustable rates ───────────────────────────────────────────────
 const INTERNATIONAL_COMMISSION = 0.0; // e.g. 0.03 = 3%
@@ -829,6 +830,7 @@ function HomeView({
   setShowDeposit,
   setShowSend,
   setShowWithdraw,
+  balanceCOP,
 }: {
   setView: (v: View) => void;
   setSelectedTransaction: (tx: Transaction | null) => void;
@@ -837,6 +839,7 @@ function HomeView({
   setShowDeposit: (b: boolean) => void;
   setShowSend: (b: boolean) => void;
   setShowWithdraw: (b: boolean) => void;
+  balanceCOP: number;
 }) {
   const MENU_CARDS: { id: View; label: string; desc: string; icon: React.ReactNode }[] = [
     { id: 'prestamos', label: 'Préstamos', desc: 'Respaldo flexible y claro', icon: Icons.prestamos },
@@ -863,7 +866,7 @@ function HomeView({
         <div className="flex justify-between items-start">
           <div>
             <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1">Saldo disponible</p>
-            <p className="text-4xl font-black text-black tracking-tight">{copFmt.format(USER.balanceCOP)}</p>
+            <p className="text-4xl font-black text-black tracking-tight">{copFmt.format(balanceCOP)}</p>
           </div>
           <button className="w-8 h-8 rounded-full bg-zinc-50 border border-black/5 flex items-center justify-center text-black">
             {balanceExpanded ? Icons.chevronDown : Icons.chevronRight}
@@ -875,7 +878,7 @@ function HomeView({
             <p className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Cuentas Jes Bank</p>
             <div className="flex justify-between items-center py-0.5">
               <span className="text-xs text-zinc-500 font-semibold">Dinero en pesos</span>
-              <span className="text-sm font-bold text-black">{copFmt.format(USER.balanceCOP)}</span>
+              <span className="text-sm font-bold text-black">{copFmt.format(balanceCOP)}</span>
             </div>
             <div className="flex justify-between items-center py-0.5">
               <span className="text-xs text-zinc-500 font-semibold">Dinero en dólares</span>
@@ -975,36 +978,28 @@ function HomeView({
   );
 }
 
-function PrestamosView() {
+function PrestamosView({ onDisburse }: { onDisburse: (amount: number) => void }) {
   const [amount, setAmount] = useState(5000000);
   const [months, setMonths] = useState(24);
   const [showAmortization, setShowAmortization] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
 
-  const interestRate = 0.015; // 1.5% nominal mensual
-  const r = interestRate;
-  const n = months;
-  const p = amount;
-  const monthlyPayment = (p * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  const totalRepayment = monthlyPayment * n;
-  const totalInterest = totalRepayment - p;
+  const { simulation, loading, requesting, error, simulate, requestLoan } = useLoanSimulator();
 
-  const amortizationData = [];
-  let balance = p;
-  for (let i = 1; i <= n; i++) {
-    const interestPart = balance * r;
-    const principalPart = monthlyPayment - interestPart;
-    balance -= principalPart;
-    amortizationData.push({
-      month: i,
-      payment: monthlyPayment,
-      principal: principalPart,
-      interest: interestPart,
-      balance: Math.max(0, balance),
-    });
-  }
+  useEffect(() => {
+    simulate(amount, months);
+  }, [amount, months, simulate]);
 
-  const handleRequest = () => {
+  const monthlyPayment = simulation?.monthlyPayment ?? 0;
+  const totalRepayment = simulation?.totalPayment ?? 0;
+  const totalInterest = simulation?.totalInterest ?? 0;
+  const amortizationData = simulation?.amortizationTable ?? [];
+
+  const handleRequest = async () => {
+    const result = await requestLoan(amount, months);
+    if (!result) return;
+
+    onDisburse(result.disbursedAmount ?? result.simulation.amount);
     setSuccessMessage(true);
     setTimeout(() => setSuccessMessage(false), 5000);
   };
@@ -1020,6 +1015,12 @@ function PrestamosView() {
           Tasa: 1.5% MV
         </div>
       </div>
+
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs font-bold">
+          {error}
+        </div>
+      )}
 
       {successMessage && (
         <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl animate-fade-in text-xs font-bold flex items-center gap-2">
@@ -1077,7 +1078,9 @@ function PrestamosView() {
         <div className="space-y-3">
           <div>
             <p className="text-[10px] text-zinc-400 font-medium">Cuota mensual estimada</p>
-            <p className="text-2xl font-black text-black mt-0.5">{copFmtFull.format(monthlyPayment)}</p>
+            <p className="text-2xl font-black text-black mt-0.5">
+              {loading && !simulation ? 'Calculando…' : copFmtFull.format(monthlyPayment)}
+            </p>
           </div>
           <div className="h-px bg-black/5" />
           <div className="space-y-1.5 text-xs">
@@ -1100,9 +1103,10 @@ function PrestamosView() {
           </div>
           <button
             onClick={handleRequest}
-            className="w-full py-3.5 rounded-xl bg-black text-white hover:bg-zinc-800 text-xs font-bold transition-all cursor-pointer shadow-sm mt-2"
+            disabled={loading || requesting || !simulation}
+            className="w-full py-3.5 rounded-xl bg-black text-white hover:bg-zinc-800 disabled:bg-zinc-300 disabled:cursor-not-allowed text-xs font-bold transition-all cursor-pointer shadow-sm mt-2"
           >
-            Solicitar Desembolso
+            {requesting ? 'Procesando desembolso…' : 'Solicitar Desembolso'}
           </button>
         </div>
       </div>
@@ -1132,7 +1136,7 @@ function PrestamosView() {
                 {amortizationData.map(row => (
                   <tr key={row.month}>
                     <td className="py-2 font-bold text-black">{row.month}</td>
-                    <td className="py-2">{copFmtFull.format(row.payment)}</td>
+                    <td className="py-2">{copFmtFull.format(row.totalPayment)}</td>
                     <td className="py-2 text-green-600">+{copFmtFull.format(row.principal)}</td>
                     <td className="py-2 text-red-500">-{copFmtFull.format(row.interest)}</td>
                     <td className="py-2 text-right text-black font-semibold">{copFmtFull.format(row.balance)}</td>
@@ -1555,6 +1559,7 @@ export default function UserPortal() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [cardBlocked, setCardBlocked] = useState(false);
   const [balanceExpanded, setBalanceExpanded] = useState(false);
+  const [balanceCOP, setBalanceCOP] = useState(USER.balanceCOP);
 
   // Modal states
   const [showDeposit, setShowDeposit] = useState(false);
@@ -1629,9 +1634,12 @@ export default function UserPortal() {
               setShowDeposit={setShowDeposit}
               setShowSend={setShowSend}
               setShowWithdraw={setShowWithdraw}
+              balanceCOP={balanceCOP}
             />
           )}
-          {view === 'prestamos' && <PrestamosView />}
+          {view === 'prestamos' && (
+            <PrestamosView onDisburse={(disbursed) => setBalanceCOP((prev) => prev + disbursed)} />
+          )}
           {view === 'tarjetas' && (
             <TarjetasView
               cardBlocked={cardBlocked}

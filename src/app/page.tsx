@@ -11,6 +11,7 @@ const FEATURES = [
     title: 'PRESTAMOS',
     desc: 'Obtén el respaldo que necesitas con opciones claras, flexibles y pensadas para tus proyectos.',
     image: 'https://images.unsplash.com/photo-1554224155-6726b3ff858f?auto=format&fit=crop&w=800&q=85',
+    href: '/info-prestamos',
   },
   {
     title: 'TARJETAS DE CRÉDITO',
@@ -293,6 +294,8 @@ function PhoneSection() {
 }
 
 function FeatureList() {
+  const router = useRouter();
+
   return (
     <section className="py-24 px-6 bg-black text-white">
       <div className="max-w-6xl mx-auto">
@@ -304,23 +307,50 @@ function FeatureList() {
         </div>
 
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-5">
-          {FEATURES.map(f => (
-            <article key={f.title} className="overflow-hidden rounded-[2rem] bg-zinc-900 flex flex-col">
-              <div className="h-48 overflow-hidden bg-zinc-800">
-                <img
-                  src={f.image}
-                  alt=""
-                  className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                />
-              </div>
-              <div className="p-6 flex-1 flex flex-col justify-between">
-                <div>
-                  <h3 className="text-lg font-black leading-tight text-white">{f.title}</h3>
-                  <p className="mt-3 text-sm leading-relaxed text-zinc-500">{f.desc}</p>
+          {FEATURES.map(f => {
+            const clickable = Boolean(f.href);
+
+            return (
+              <article
+                key={f.title}
+                onClick={clickable ? () => router.push(f.href!) : undefined}
+                role={clickable ? 'button' : undefined}
+                tabIndex={clickable ? 0 : undefined}
+                onKeyDown={
+                  clickable
+                    ? e => {
+                        if (e.key === 'Enter' || e.key === ' ') router.push(f.href!);
+                      }
+                    : undefined
+                }
+                className={`overflow-hidden rounded-[2rem] bg-zinc-900 flex flex-col transition-transform duration-300 ${
+                  clickable ? 'cursor-pointer hover:-translate-y-1 focus:outline-none focus:ring-2 focus:ring-white/40' : ''
+                }`}
+              >
+                <div className="h-48 overflow-hidden bg-zinc-800">
+                  <img
+                    src={f.image}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                  />
                 </div>
-              </div>
-            </article>
-          ))}
+                <div className="p-6 flex-1 flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-lg font-black leading-tight text-white">{f.title}</h3>
+                    <p className="mt-3 text-sm leading-relaxed text-zinc-500">{f.desc}</p>
+                  </div>
+                  {clickable && (
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-white">
+                      Conocer más
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  )}
+                </div>
+              </article>
+            );
+          })}
         </div>
       </div>
     </section>

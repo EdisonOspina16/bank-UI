@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import { AuthService } from '../../services/auth.service';
@@ -10,21 +10,15 @@ const usdFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'US
 const copFmtFull = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 2 });
 
 interface Transaction {
-  id: number;
-  name: string;
-  category: string;
+  id: string;
+  accountId?: string;
+  category?: string | null;
   amount: number;
-  iconType: string;
-  date: string;
+  description?: string;
+  createdAt: string;
 }
 
-const TRANSACTIONS: Transaction[] = [
-  { id: 1, name: 'Rappi',           category: 'Comidas',          amount: -48500,   iconType: 'rappi', date: 'Hoy · 2:14 pm' },
-  { id: 2, name: 'Spotify',         category: 'Entretenimiento',  amount: -9900,    iconType: 'spotify', date: 'Hoy · 10:00 am' },
-  { id: 3, name: 'Netflix',         category: 'Streaming',        amount: -22900,   iconType: 'netflix', date: 'Ayer · 12:00 am' },
-  { id: 4, name: 'Amazon Prime',    category: 'Compras',          amount: -50000,   iconType: 'amazon', date: 'Lun · 8:00 am' },
-  { id: 5, name: 'Transferencia',   category: 'Recibido',         amount: 350000,  iconType: 'transfer', date: 'Dom · 3:45 pm' },
-];
+// (moved into component scope)
 
 type View = 'home' | 'prestamos' | 'tarjetas' | 'tmr' | 'simulacion' | 'condiciones' | 'virtual' | 'comprobante';
 
@@ -177,6 +171,16 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
   const router = useRouter();
   const [view, setView] = useState<View>('home');
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  // movement/detail states moved up to module scope; local selected id handled here
+  const [selectedMovementId, setSelectedMovementId] = useState<string | null>(null);
+  const [movements, setMovements] = useState<Transaction[]>([]);
+  const [loadingMovements, setLoadingMovements] = useState(false);
+  const [movementsError, setMovementsError] = useState<string | null>(null);
+  const [selectedMovementDetail, setSelectedMovementDetail] = useState<any>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [accounts, setAccounts] = useState<any[]>([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [cardBlocked, setCardBlocked] = useState(false);
   const [balanceExpanded, setBalanceExpanded] = useState(false);
 
@@ -193,7 +197,70 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
     }
   };
 
-  const MENU_CARDS: { id: View; label: string; desc: string; icon: React.ReactNode }[] = [
+  useEffect(() => {
+    // fetch movements and accounts when component mounts or refreshKey changes
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const token = AuthService.getAccessToken();
+
+    const fetchMovements = async () => {
+      setLoadingMovements(true);
+      setMovementsError(null);
+      try {
+        if (!token) throw new Error('No autenticado.');
+        const res = await fetch(`${API_URL}/api/v1/movements`, { headers: { Authorization: `Bearer ${token}` } });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Failed to fetch movements');
+        setMovements(body.movements || []);
+      } catch (e: any) {
+        setMovements([]);
+        setMovementsError(e?.message || 'No se pudieron cargar los movimientos.');
+      } finally {
+        setLoadingMovements(false);
+      }
+    };
+
+    const fetchAccounts = async () => {
+      setLoadingAccounts(true);
+      try {
+        const res = await fetch(`${API_URL}/api/v1/accounts`, { headers: { Authorization: `Bearer ${token}` } });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Failed to fetch accounts');
+        setAccounts(body.accounts || []);
+      } catch (e) {
+        setAccounts([]);
+      } finally {
+        setLoadingAccounts(false);
+      }
+    };
+
+    fetchAccounts();
+    fetchMovements();
+  }, [refreshKey]);
+
+  useEffect(() => {
+    // when selectedMovementId is set, fetch details
+    if (!selectedMovementId) return;
+    const fetchDetail = async () => {
+      setLoadingDetail(true);
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+        const token = AuthService.getAccessToken();
+        const res = await fetch(`${API_URL}/api/v1/movements/${selectedMovementId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Failed to fetch movement detail');
+        setSelectedMovementDetail(body);
+      } catch (e) {
+        setSelectedMovementDetail(null);
+      } finally {
+        setLoadingDetail(false);
+      }
+    };
+    fetchDetail();
+  }, [selectedMovementId]);
+
+  const MENU_CARDS: { id: View; label: string; desc: string; icon: ReactNode }[] = [
     { id: 'prestamos', label: 'Préstamos', desc: 'Respaldo flexible y claro', icon: Icons.prestamos },
     { id: 'tarjetas', label: 'Mi Tarjeta', desc: 'Límites y seguridad', icon: Icons.tarjetas },
     { id: 'tmr', label: 'TMR del día', desc: 'Tasa representativa oficial', icon: Icons.tmr },
@@ -232,6 +299,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                 {view === 'simulacion' && 'Simulador'}
                 {view === 'condiciones' && 'Condiciones'}
                 {view === 'virtual' && 'Tarjeta virtual'}
+                {view === 'comprobante' && 'Comprobante'}
               </h1>
             )}
           </div>
@@ -242,7 +310,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
         </header>
 
         {/* View Content Area */}
-        <main className="flex-1 px-6 py-6 overflow-y-auto">
+        <main className={`flex-1 px-6 py-6 overflow-y-auto ${view === 'comprobante' ? 'bg-[#F8F8F8]' : ''}`}>
           {view === 'home' && (
             <div className="space-y-6">
               {/* Welcome */}
@@ -263,9 +331,14 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
               >
                 <div className="flex justify-between items-start">
                   <div className="text-left">
-                    <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1">Saldo disponible</p>
-                    <p className="text-4xl font-black text-black tracking-tight">{copFmt.format(8420000)}</p>
-                  </div>
+                        <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1">Saldo disponible</p>
+                        <p className="text-4xl font-black text-black tracking-tight">
+                          {(() => {
+                            const copAcc = accounts.find(a => a.currency === 'COP');
+                            return copFmt.format(copAcc ? copAcc.balance : 0);
+                          })()}
+                        </p>
+                      </div>
                   <button className="w-8 h-8 rounded-full bg-zinc-50 border border-black/5 flex items-center justify-center text-black">
                     {balanceExpanded ? Icons.chevronDown : Icons.chevronRight}
                   </button>
@@ -275,12 +348,12 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                     <p className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Cuentas Personales</p>
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-xs text-zinc-500 font-semibold">Cuenta de Ahorros</span>
-                      <span className="text-sm font-bold text-black">{copFmt.format(8420000)}</span>
+                      <span className="text-sm font-bold text-black">{copFmt.format((accounts.find(a => a.currency === 'COP')?.balance) ?? 0)}</span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-xs text-zinc-500 font-semibold">Cuenta Digital (USD)</span>
                       <span className="text-sm font-mono font-bold text-black">
-                        {usdFmt.format(2050.75)} <span className="text-[10px] font-sans text-zinc-400">USD</span>
+                        {usdFmt.format((accounts.find(a => a.currency === 'USD')?.balance) ?? 0)} <span className="text-[10px] font-sans text-zinc-400">USD</span>
                       </span>
                     </div>
                   </div>
@@ -319,29 +392,41 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                   <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Historial</span>
                 </div>
                 <div className="space-y-1">
-                  {TRANSACTIONS.map(tx => (
-                    <div
-                      key={tx.id}
-                      onClick={() => {
-                        setSelectedTransaction(tx);
-                        setView('comprobante');
-                      }}
-                      className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors group cursor-pointer border border-transparent hover:border-black/5"
-                    >
-                      <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center text-black shrink-0 border border-black/5">
-                        {getTransactionIcon(tx.iconType)}
+                  {loadingMovements ? (
+                    <div className="text-xs text-zinc-400">Cargando movimientos...</div>
+                  ) : movementsError ? (
+                    <div className="text-xs text-red-600 font-semibold py-2">{movementsError}</div>
+                  ) : movements.length === 0 ? (
+                    <div className="text-xs text-zinc-400 py-2">Aún no tienes movimientos.</div>
+                  ) : (
+                    movements.map(m => {
+                      const isIncome = m.amount > 0;
+                      return (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          setSelectedMovementId(m.id);
+                          setSelectedTransaction(m);
+                          setView('comprobante');
+                        }}
+                        className="flex items-center gap-3 p-3 rounded-2xl hover:bg-zinc-50 transition-colors group cursor-pointer border border-transparent hover:border-black/5"
+                      >
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${isIncome ? 'bg-green-50 border-green-100 text-green-700' : 'bg-red-50 border-red-100 text-red-700'}`}>
+                          {getTransactionIcon('transfer')}
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                          <p className="text-xs font-bold text-black truncate">{m.description ?? m.category ?? 'Movimiento'}</p>
+                          <p className="text-[9px] text-zinc-400 font-medium">{m.category ?? ''} · {new Date(m.createdAt).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className={`text-xs font-black font-mono ${isIncome ? 'text-green-600' : 'text-red-600'}`}>
+                            {isIncome ? '+' : ''}{copFmt.format(m.amount)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0 text-left">
-                        <p className="text-xs font-bold text-black truncate">{tx.name}</p>
-                        <p className="text-[9px] text-zinc-400 font-medium">{tx.category} · {tx.date}</p>
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className={`text-xs font-black font-mono ${tx.amount > 0 ? 'text-green-600' : 'text-black'}`}>
-                          {tx.amount > 0 ? '+' : ''}{copFmt.format(tx.amount)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                      );
+                    })
+                  )}
                 </div>
               </div>
 
@@ -378,12 +463,19 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
           {view === 'simulacion' && <SimulacionInnerView />}
           {view === 'condiciones' && <CondicionesSharedView />}
           {view === 'virtual' && <VirtualCardInnerView user={user} />}
+          {view === 'comprobante' && (
+            <ComprobanteView
+              detail={selectedMovementDetail}
+              loading={loadingDetail}
+              onBack={() => { setView('home'); setSelectedMovementId(null); setSelectedMovementDetail(null); }}
+            />
+          )}
         </main>
       </div>
 
       {/* Modals */}
       <DepositModal isOpen={showDeposit} onClose={() => setShowDeposit(false)} />
-      <SendModal isOpen={showSend} onClose={() => setShowSend(false)} />
+      <SendModal isOpen={showSend} onClose={() => setShowSend(false)} onSuccess={() => setRefreshKey(k => k + 1)} />
       <WithdrawModal isOpen={showWithdraw} onClose={() => setShowWithdraw(false)} />
     </div>
   );
@@ -725,22 +817,55 @@ function DepositModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => voi
   );
 }
 
-function SendModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+function SendModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: () => void; onSuccess?: () => void }) {
   const [phone, setPhone] = useState('');
   const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState<'COP' | 'USD'>('COP');
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  const handleSend = (e: React.FormEvent) => {
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSuccess(true);
-    setTimeout(() => {
-      setSuccess(false);
-      setPhone('');
-      setAmount('');
-      onClose();
-    }, 2000);
+    setError(null);
+    const amt = Number(amount);
+    if (!phone || isNaN(amt) || amt <= 0) {
+      setError('Número o monto inválido.');
+      return;
+    }
+
+    const ok = window.confirm(`Revisa bien el número ${phone} y el monto ${amt} ${currency}. ¿Deseas continuar?`);
+    if (!ok) return;
+
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const token = AuthService.getAccessToken();
+      if (!token) throw new Error('No autenticado.');
+
+      const res = await fetch(`${API_URL}/api/v1/transfers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ toPhone: phone, amount: amt, currency }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Error en la transferencia.');
+
+      setSuccess(true);
+      setTimeout(() => {
+        setSuccess(false);
+        setPhone('');
+        setAmount('');
+        onClose();
+        if (onSuccess) onSuccess();
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || 'Error en la transferencia.');
+    }
   };
 
   return (
@@ -762,10 +887,17 @@ function SendModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }
               type="tel" required placeholder="Número de celular" value={phone} onChange={e => setPhone(e.target.value)}
               className="w-full p-3 bg-zinc-50 border border-black/8 rounded-xl text-xs outline-none"
             />
-            <input
-              type="number" required placeholder="Monto COP" value={amount} onChange={e => setAmount(e.target.value)}
-              className="w-full p-3 bg-zinc-50 border border-black/8 rounded-xl text-xs outline-none"
-            />
+            <div className="flex gap-2">
+              <select value={currency} onChange={e => setCurrency(e.target.value as 'COP'|'USD')} className="p-3 bg-zinc-50 border border-black/8 rounded-xl text-xs outline-none">
+                <option value="COP">COP (Pesos)</option>
+                <option value="USD">USD (Dólares)</option>
+              </select>
+              <input
+                type="number" required placeholder={currency === 'COP' ? 'Monto COP' : 'Monto USD'} value={amount} onChange={e => setAmount(e.target.value)}
+                className="flex-1 p-3 bg-zinc-50 border border-black/8 rounded-xl text-xs outline-none"
+              />
+            </div>
+            {error && <div className="text-xs text-red-600 font-bold">{error}</div>}
             <button type="submit" className="w-full py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800">Confirmar Envío</button>
           </form>
         )}
@@ -804,3 +936,215 @@ function WithdrawModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => vo
   );
 }
 export { TMRSharedView, CondicionesSharedView };
+
+function formatReceiptDate(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  const time = d.toLocaleTimeString('es-CO', { hour: 'numeric', minute: '2-digit', hour12: true });
+  if (sameDay) return `Hoy · ${time}`;
+  const day = d.toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' });
+  return `${day} · ${time}`;
+}
+
+function maskAccount(accountNumber?: string) {
+  if (!accountNumber) return '•••• ----';
+  const last4 = accountNumber.slice(-4);
+  return `•••• ${last4}`;
+}
+
+function ComprobanteView({ detail, loading, onBack }: { detail: any; loading: boolean; onBack: () => void }) {
+  if (loading) {
+    return (
+      <div className="py-10 text-center">
+        <div className="text-xs text-zinc-400 font-semibold">Cargando comprobante...</div>
+      </div>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <div className="py-10 text-center space-y-4">
+        <div className="text-sm font-bold text-black">Detalle no disponible</div>
+        <button onClick={onBack} className="px-5 py-2.5 bg-black text-white text-xs font-bold rounded-xl">Listo</button>
+      </div>
+    );
+  }
+
+  const amount = Number(detail.amount);
+  const isIncome = amount > 0;
+  const absAmount = Math.abs(amount);
+  const currency = detail.currency || 'COP';
+  const amountLabel = isIncome ? 'Monto recibido' : 'Monto pagado';
+  const title = isIncome ? '¡Recibido!' : '¡Pago exitoso!';
+  const partyLabel = isIncome ? 'Recibido de' : 'Pagado en';
+  const partyValue = detail.description || detail.category || 'Jes Bank';
+  const refCode = (detail.referenceCode || detail.reference || detail.id || '')
+    .toString()
+    .replace(/-/g, '')
+    .slice(0, 10)
+    .toUpperCase();
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(
+    `JESBANK|${refCode}|${absAmount}|${currency}`
+  )}`;
+
+  const shareText = [
+    `Comprobante Jes Bank`,
+    `${title}`,
+    `${amountLabel}: ${copFmt.format(absAmount)} ${currency}`,
+    `${partyLabel}: ${partyValue}`,
+    `Fecha: ${formatReceiptDate(detail.createdAt)}`,
+    `Referencia: ${refCode}`,
+    `Estado: Completado`,
+  ].join('\n');
+
+  const handleShare = async () => {
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Comprobante Jes Bank', text: shareText });
+        return;
+      }
+      await navigator.clipboard.writeText(shareText);
+      alert('Comprobante copiado al portapapeles.');
+    } catch {
+      /* user cancelled share */
+    }
+  };
+
+  const handleDownload = () => {
+    const blob = new Blob([shareText], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `comprobante-${refCode}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const rows: { label: string; value: ReactNode }[] = [
+    { label: partyLabel, value: partyValue },
+    { label: 'Fecha', value: formatReceiptDate(detail.createdAt) },
+    { label: 'Referencia', value: refCode },
+    { label: 'Origen de los fondos', value: `Cuenta de ahorros ${maskAccount(detail.accountNumber)}` },
+    {
+      label: 'Estado',
+      value: (
+        <span className="inline-flex items-center gap-1 font-bold text-black">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+          Completado
+        </span>
+      ),
+    },
+  ];
+
+  return (
+    <div className="max-w-md mx-auto space-y-5 pb-4">
+      {/* Success header */}
+      <div className="text-center space-y-2 pt-2">
+        <div className="mx-auto w-14 h-14 rounded-full bg-[#D4F8E8] flex items-center justify-center">
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#28A745" strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-black text-black tracking-tight">{title}</h2>
+        <p className="text-[12px] text-zinc-500 font-medium">Tu transacción fue procesada</p>
+      </div>
+
+      {/* Ticket card */}
+      <div className="relative bg-white border border-black/8 rounded-[1.75rem] shadow-sm overflow-hidden">
+        {/* Side punch-outs */}
+        <div className="pointer-events-none absolute left-0 top-[38%] -translate-x-1/2 w-5 h-5 rounded-full bg-[#F8F8F8] border border-black/8" />
+        <div className="pointer-events-none absolute right-0 top-[38%] translate-x-1/2 w-5 h-5 rounded-full bg-[#F8F8F8] border border-black/8" />
+
+        {/* Amount */}
+        <div className="px-6 pt-7 pb-5 text-center">
+          <p className="text-[11px] text-zinc-400 font-medium mb-1">{amountLabel}</p>
+          <p className="text-[2rem] font-black text-black tracking-tight leading-none">
+            {copFmt.format(absAmount)}
+          </p>
+          <p className="text-[11px] text-zinc-400 font-semibold mt-1.5">{currency}</p>
+        </div>
+
+        <div className="mx-5 border-t border-dashed border-zinc-200" />
+
+        {/* QR */}
+        <div className="px-6 py-6 flex flex-col items-center gap-3">
+          <div className="bg-white p-2 rounded-xl border border-black/5">
+            <img
+              src={qrUrl}
+              alt="Código QR del comprobante"
+              width={160}
+              height={160}
+              className="w-40 h-40 object-contain"
+            />
+          </div>
+          <p className="text-[11px] text-zinc-400 font-medium text-center">
+            Escanea para validar este comprobante
+          </p>
+        </div>
+
+        <div className="mx-5 border-t border-dashed border-zinc-200" />
+
+        {/* Details */}
+        <div className="px-6 py-5 space-y-3.5">
+          {rows.map((row) => (
+            <div key={row.label} className="flex items-start justify-between gap-4 text-[12px]">
+              <span className="text-zinc-400 font-medium shrink-0">{row.label}</span>
+              <span className="text-black font-bold text-right">{row.value}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Reference box */}
+        <div className="px-6 pb-6">
+          <div className="rounded-2xl bg-zinc-50 border border-black/5 px-4 py-3.5 text-center">
+            <p className="text-[10px] text-zinc-400 font-medium mb-1">Número de referencia</p>
+            <p className="text-sm font-black text-black tracking-wider font-mono">{refCode}</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-2.5">
+        <button
+          type="button"
+          onClick={handleDownload}
+          className="w-full py-3.5 bg-white border border-black/10 rounded-2xl text-[13px] font-bold text-black flex items-center justify-center gap-2 hover:bg-zinc-50 transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          Descargar comprobante
+        </button>
+        <button
+          type="button"
+          onClick={handleShare}
+          className="w-full py-3.5 bg-white border border-black/10 rounded-2xl text-[13px] font-bold text-black flex items-center justify-center gap-2 hover:bg-zinc-50 transition-colors"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="18" cy="5" r="3" />
+            <circle cx="6" cy="12" r="3" />
+            <circle cx="18" cy="19" r="3" />
+            <path d="m8.6 13.5 6.8 4" />
+            <path d="m15.4 6.5-6.8 4" />
+          </svg>
+          Compartir
+        </button>
+        <button
+          type="button"
+          onClick={onBack}
+          className="w-full py-3.5 bg-black text-white rounded-2xl text-[13px] font-bold hover:bg-zinc-800 transition-colors"
+        >
+          Listo
+        </button>
+      </div>
+    </div>
+  );
+}

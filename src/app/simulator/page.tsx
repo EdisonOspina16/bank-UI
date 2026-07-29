@@ -1,8 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
+import TarjetasCredito from './TarjetasCredito';
+import TarjetasVirtuales from './TarjetasVirtuales';
+import ProfileComponent from './profile';
+import NotificationsComponent from './notifications';
 
 // ─── Developer-adjustable rates ───────────────────────────────────────────────
 const INTERNATIONAL_COMMISSION = 0.0; // e.g. 0.03 = 3%
@@ -840,7 +844,7 @@ function HomeView({
 }) {
   const MENU_CARDS: { id: View; label: string; desc: string; icon: React.ReactNode }[] = [
     { id: 'prestamos', label: 'Préstamos', desc: 'Respaldo flexible y claro', icon: Icons.prestamos },
-    { id: 'tarjetas', label: 'Mi Tarjeta', desc: 'Límites y seguridad', icon: Icons.tarjetas },
+    { id: 'tarjetas', label: 'Tarjetas de crédito', desc: 'Límites y seguridad', icon: Icons.tarjetas },
     { id: 'tmr', label: 'TMR del día', desc: 'Tasa representativa oficial', icon: Icons.tmr },
     { id: 'virtual', label: 'Tarjeta virtual', desc: 'CVV dinámico seguro', icon: Icons.virtual },
     { id: 'simulacion', label: 'Simulador TRM', desc: 'Calcula compras en dólares', icon: Icons.simulacion },
@@ -1160,7 +1164,7 @@ function TarjetasView({
   return (
     <div className="space-y-6 text-black">
       <div className="text-left">
-        <h2 className="text-lg font-black text-black">Mi Tarjeta</h2>
+        <h2 className="text-lg font-black text-black">Tarjetas de crédito</h2>
         <p className="text-[11px] text-zinc-400 font-medium mt-0.5">Controla la seguridad de tu plástico físico</p>
       </div>
 
@@ -1555,11 +1559,27 @@ export default function UserPortal() {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [cardBlocked, setCardBlocked] = useState(false);
   const [balanceExpanded, setBalanceExpanded] = useState(false);
+  const [creditCardData, setCreditCardData] = useState<any | null>(null);
+  const [virtualInitialTab, setVirtualInitialTab] = useState<'debito' | 'credito'>('debito');
+
+  // Load persisted credit card (gastado) from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('creditCardData');
+      if (raw) {
+        setCreditCardData(JSON.parse(raw));
+      }
+    } catch (e) {
+      // ignore
+    }
+  }, []);
 
   // Modal states
   const [showDeposit, setShowDeposit] = useState(false);
   const [showSend, setShowSend] = useState(false);
   const [showWithdraw, setShowWithdraw] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showNotificationsModal, setShowNotificationsModal] = useState(false);
 
   const onBack = () => {
     if (view === 'home') {
@@ -1577,7 +1597,7 @@ export default function UserPortal() {
   const titles: Record<View, string> = {
     home: 'Inicio',
     prestamos: 'Préstamos',
-    tarjetas: 'Tarjetas',
+    tarjetas: 'Tarjetas de crédito',
     tmr: 'TMR del día',
     simulacion: 'Simulador',
     condiciones: 'Condiciones',
@@ -1613,8 +1633,21 @@ export default function UserPortal() {
             )}
           </div>
           
-          <div className="w-8 h-8 flex items-center justify-center text-zinc-400 hover:text-black cursor-pointer">
-            {Icons.bell}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setShowNotificationsModal(true)}
+              aria-label="Notificaciones"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-black hover:bg-zinc-100 transition-colors cursor-pointer"
+            >
+              {Icons.bell}
+            </button>
+            <button
+              onClick={() => setShowProfileModal(true)}
+              aria-label="Perfil"
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-black text-white hover:opacity-90 transition-opacity cursor-pointer"
+            >
+              <span className="text-[11px] font-black">JB</span>
+            </button>
           </div>
         </header>
 
@@ -1633,15 +1666,33 @@ export default function UserPortal() {
           )}
           {view === 'prestamos' && <PrestamosView />}
           {view === 'tarjetas' && (
-            <TarjetasView
-              cardBlocked={cardBlocked}
-              setCardBlocked={setCardBlocked}
-            />
-          )}
+            <TarjetasCredito
+              onAprobada={(p) => {
+                // store approved credit product and navigate to virtual cards
+                          const payload = { producto: p, cupoNumero: p.cupoNumero ?? (p.cupoNumero || 0), gastado: 0 };
+                          setCreditCardData(payload);
+                          try { localStorage.setItem('creditCardData', JSON.stringify(payload)); } catch (e) {}
+                          setVirtualInitialTab('credito');
+                          setView('virtual');
+                        }}
+                        onBackToHome={() => setView('home')}
+                      />
+                    )}
           {view === 'tmr' && <TMRView />}
           {view === 'simulacion' && <SimulacionView />}
           {view === 'condiciones' && <CondicionesView />}
-          {view === 'virtual' && <VirtualCardView />}
+          {view === 'virtual' && (
+            <TarjetasVirtuales
+              creditCard={creditCardData}
+              initialTab={virtualInitialTab}
+              onSolicitarCredito={() => setView('tarjetas')}
+              onBackToHome={() => setView('home')}
+                        onUpdateCreditCard={(c: any) => {
+                          setCreditCardData(c);
+                          try { localStorage.setItem('creditCardData', JSON.stringify(c)); } catch (e) {}
+                        }}
+                      />
+                    )}
         </main>
       </div>
 
@@ -1649,6 +1700,35 @@ export default function UserPortal() {
       <DepositModal isOpen={showDeposit} onClose={() => setShowDeposit(false)} />
       <SendModal isOpen={showSend} onClose={() => setShowSend(false)} />
       <WithdrawModal isOpen={showWithdraw} onClose={() => setShowWithdraw(false)} />
+
+      {/* Notifications / Profile Overlays (opened from header) */}
+      {showNotificationsModal && (
+        <div className="fixed inset-0 z-50 bg-white overflow-auto">
+          <div className="p-4">
+            <button
+              onClick={() => setShowNotificationsModal(false)}
+              className="mb-4 px-3 py-1 rounded-md border text-sm"
+            >
+              Volver
+            </button>
+            <NotificationsComponent />
+          </div>
+        </div>
+      )}
+
+      {showProfileModal && (
+        <div className="fixed inset-0 z-50 bg-white overflow-auto">
+          <div className="p-4">
+            <button
+              onClick={() => setShowProfileModal(false)}
+              className="mb-4 px-3 py-1 rounded-md border text-sm"
+            >
+              Volver
+            </button>
+            <ProfileComponent />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

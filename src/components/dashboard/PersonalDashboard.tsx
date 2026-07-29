@@ -4,6 +4,7 @@ import { useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import { AuthService } from '../../services/auth.service';
+import { FEATURES } from '../../lib/features';
 
 const copFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const usdFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -260,21 +261,26 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
     fetchDetail();
   }, [selectedMovementId]);
 
-  const MENU_CARDS: { id: View; label: string; desc: string; icon: ReactNode }[] = [
-    { id: 'prestamos', label: 'Préstamos', desc: 'Respaldo flexible y claro', icon: Icons.prestamos },
-    { id: 'tarjetas', label: 'Mi Tarjeta', desc: 'Límites y seguridad', icon: Icons.tarjetas },
-    { id: 'tmr', label: 'TMR del día', desc: 'Tasa representativa oficial', icon: Icons.tmr },
-    { id: 'virtual', label: 'Tarjeta virtual', desc: 'CVV dinámico seguro', icon: Icons.virtual },
-    { id: 'simulacion', label: 'Simulador TRM', desc: 'Calcula compras en dólares', icon: Icons.simulacion },
-    { id: 'condiciones', label: 'Condiciones', desc: 'Términos del producto', icon: Icons.condiciones },
-  ];
+  const MENU_CARDS: { id: View; label: string; desc: string; icon: ReactNode; image: string }[] = FEATURES.map((f) => ({
+    id: f.id as View,
+    label: f.shortTitle,
+    desc: f.shortDesc,
+    image: f.image,
+    icon:
+      f.id === 'prestamos' ? Icons.prestamos :
+      f.id === 'tarjetas' ? Icons.tarjetas :
+      f.id === 'tmr' ? Icons.tmr :
+      f.id === 'virtual' ? Icons.virtual :
+      f.id === 'simulacion' ? Icons.simulacion :
+      Icons.condiciones,
+  }));
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-black font-sans flex flex-col items-center">
-      <div className="w-full max-w-xl min-h-screen bg-white md:shadow-md md:border-x md:border-black/6 flex flex-col">
+    <div className="min-h-screen bg-zinc-100 text-black font-sans flex flex-col items-center">
+      <div className="w-full max-w-xl lg:max-w-6xl min-h-screen bg-white lg:my-6 lg:rounded-[2rem] lg:shadow-[0_30px_80px_-40px_rgba(0,0,0,0.35)] lg:border lg:border-black/6 flex flex-col overflow-hidden">
         
         {/* Header Bar */}
-        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-black/6 px-6 h-14 flex items-center justify-between shrink-0">
+        <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-black/6 px-6 lg:px-8 h-14 flex items-center justify-between shrink-0">
           <button
             onClick={onBack}
             className="flex items-center justify-center w-8 h-8 rounded-full hover:bg-zinc-100 text-black transition-colors cursor-pointer"
@@ -310,24 +316,25 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
         </header>
 
         {/* View Content Area */}
-        <main className={`flex-1 px-6 py-6 overflow-y-auto ${view === 'comprobante' ? 'bg-[#F8F8F8]' : ''}`}>
+        <main className={`flex-1 px-6 lg:px-8 py-6 overflow-y-auto ${view === 'comprobante' ? 'bg-[#F8F8F8]' : ''}`}>
           {view === 'home' && (
-            <div className="space-y-6">
+            <div className="space-y-6 lg:space-y-0 lg:grid lg:grid-cols-12 lg:gap-8 lg:items-start">
               {/* Welcome */}
-              <div className="text-left flex justify-between items-center">
+              <div className="text-left flex justify-between items-center lg:col-span-12">
                 <div>
                   <p className="text-xs text-zinc-400 font-semibold uppercase tracking-wider">Banca Virtual Personas</p>
-                  <h1 className="text-2xl font-black tracking-tight text-black mt-0.5">Hola, {user.firstName}</h1>
+                  <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-black mt-0.5">Hola, {user.firstName}</h1>
                 </div>
                 <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-black border border-black/5">
                   {user.firstName?.[0] ?? 'U'}{user.lastName?.[0] ?? 'B'}
                 </div>
               </div>
 
+              <div className="space-y-6 lg:col-span-5">
               {/* Balance */}
               <div
                 onClick={() => setBalanceExpanded(!balanceExpanded)}
-                className="rounded-[2rem] bg-white border border-black/8 p-6 shadow-sm cursor-pointer select-none transition-all hover:border-black/20"
+                className="rounded-[2rem] bg-white border border-black/8 p-6 shadow-sm cursor-pointer select-none transition-all hover:border-black/20 hover:shadow-md"
               >
                 <div className="flex justify-between items-start">
                   <div className="text-left">
@@ -364,21 +371,21 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
               <div className="grid grid-cols-3 gap-3">
                 <button
                   onClick={() => setShowDeposit(true)}
-                  className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 text-black transition-all cursor-pointer font-bold text-xs"
+                  className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 hover:-translate-y-0.5 text-black transition-all cursor-pointer font-bold text-xs"
                 >
                   <span className="text-black">{Icons.deposit}</span>
                   <span className="text-[10px] text-zinc-600">Depositar</span>
                 </button>
                 <button
                   onClick={() => setShowSend(true)}
-                  className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 text-black transition-all cursor-pointer font-bold text-xs"
+                  className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 hover:-translate-y-0.5 text-black transition-all cursor-pointer font-bold text-xs"
                 >
                   <span className="text-black">{Icons.send}</span>
                   <span className="text-[10px] text-zinc-600">Enviar</span>
                 </button>
                 <button
                   onClick={() => setShowWithdraw(true)}
-                  className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 text-black transition-all cursor-pointer font-bold text-xs"
+                  className="flex flex-col items-center gap-2 py-4 rounded-2xl border border-black/5 bg-zinc-50 hover:bg-zinc-100 hover:-translate-y-0.5 text-black transition-all cursor-pointer font-bold text-xs"
                 >
                   <span className="text-black">{Icons.withdraw}</span>
                   <span className="text-[10px] text-zinc-600">Retirar</span>
@@ -391,7 +398,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                   <h2 className="text-sm font-bold text-black">Movimientos Recientes</h2>
                   <span className="text-[9px] text-zinc-400 font-bold uppercase tracking-wider">Historial</span>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-1 max-h-[320px] overflow-y-auto">
                   {loadingMovements ? (
                     <div className="text-xs text-zinc-400">Cargando movimientos...</div>
                   ) : movementsError ? (
@@ -429,24 +436,34 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                   )}
                 </div>
               </div>
+              </div>
 
               {/* Discover More */}
-              <div className="mt-8 pt-6 border-t border-black/5 text-left space-y-4">
+              <div className="pt-2 lg:pt-0 lg:col-span-7 text-left space-y-4">
                 <div>
                   <p className="text-[9px] text-zinc-400 uppercase font-bold tracking-widest">Descubre más</p>
-                  <h2 className="text-base font-black text-black leading-tight mt-0.5">Una cuenta. Infinitas posibilidades.</h2>
+                  <h2 className="text-base lg:text-xl font-black text-black leading-tight mt-0.5">Una cuenta. Infinitas posibilidades.</h2>
                 </div>
-                <div className="grid grid-cols-2 gap-3 pb-8">
+                <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 pb-8">
                   {MENU_CARDS.map(card => (
                     <button
                       key={card.id}
                       onClick={() => setView(card.id)}
-                      className="aspect-square bg-white border border-black/8 rounded-[1.5rem] p-5 flex flex-col justify-between hover:bg-zinc-50 transition-all text-left shadow-sm hover:scale-[1.01] cursor-pointer"
+                      className="group overflow-hidden bg-white border border-black/8 rounded-[1.5rem] text-left shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all cursor-pointer"
                     >
-                      <div className="w-9 h-9 rounded-xl bg-zinc-50 border border-black/5 flex items-center justify-center text-black">
-                        {card.icon}
+                      <div className="h-24 lg:h-28 overflow-hidden bg-zinc-100 relative">
+                        <img
+                          src={card.image}
+                          alt={card.label}
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
+                          loading="lazy"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/35 to-transparent" />
+                        <div className="absolute bottom-2 left-2 w-8 h-8 rounded-lg bg-white/90 backdrop-blur flex items-center justify-center text-black border border-white/50">
+                          {card.icon}
+                        </div>
                       </div>
-                      <div>
+                      <div className="p-4">
                         <h3 className="text-xs font-bold text-black">{card.label}</h3>
                         <p className="text-[9px] text-zinc-400 font-medium leading-snug mt-1">{card.desc}</p>
                       </div>

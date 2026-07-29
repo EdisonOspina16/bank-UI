@@ -112,8 +112,8 @@ export default function CompanyDashboard({ user, onLogout }: CompanyDashboardPro
   };
 
   return (
-    <div className="min-h-screen bg-zinc-50 text-black font-sans flex flex-col items-center">
-      <div className="w-full max-w-xl min-h-screen bg-white md:shadow-md md:border-x md:border-black/6 flex flex-col">
+    <div className="min-h-screen bg-zinc-100 text-black font-sans flex flex-col items-center">
+      <div className="w-full max-w-xl lg:max-w-6xl min-h-screen bg-white lg:my-6 lg:rounded-[2rem] lg:shadow-[0_30px_80px_-40px_rgba(0,0,0,0.35)] lg:border lg:border-black/6 flex flex-col overflow-hidden">
 
         {/* ── Header Bar ── */}
         <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-black/6 px-6 h-14 flex items-center justify-between shrink-0">

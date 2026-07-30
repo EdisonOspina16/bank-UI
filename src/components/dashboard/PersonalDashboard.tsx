@@ -3,12 +3,15 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
+import { useTrmHistory } from '../../hooks/useTrmHistory';
 import { AuthService } from '../../services/auth.service';
 import { FEATURES } from '../../lib/features';
+import { HIDDEN_BALANCE } from '../../lib/maskName';
 import TarjetasCredito, { PRODUCTS } from '../../app/simulator/TarjetasCredito';
 import TarjetasVirtuales from '../../app/simulator/TarjetasVirtuales';
 import NotificationsComponent from '../../app/simulator/notifications';
 import ProfileComponent from '../../app/simulator/profile';
+import TrmChart from '../trm/TrmChart';
 
 const copFmt = new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0, maximumFractionDigits: 0 });
 const usdFmt = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -114,6 +117,21 @@ const Icons = {
       <line x1="19" y1="12" x2="5" y2="12" />
       <polyline points="12 19 5 12 12 5" />
     </svg>
+  ),
+  eyeOpen: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+      <path d="M1 1l3 2M23 1l-3 2M1 23l3-2M23 23l-3-2" strokeWidth="1.2" opacity="0.35" />
+    </svg>
+  ),
+  eyeClosed: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-10-8-10-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 10 8 10 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <path d="M1 1l22 22" />
+      <path d="M1 4l2 1.5M23 4l-2 1.5M1 20l2-1.5M23 20l-2 1.5" strokeWidth="1.2" opacity="0.35" />
+    </svg>
   )
 };
 
@@ -188,6 +206,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
   const [refreshKey, setRefreshKey] = useState(0);
   const [cardBlocked, setCardBlocked] = useState(false);
   const [balanceExpanded, setBalanceExpanded] = useState(false);
+  const [balanceHidden, setBalanceHidden] = useState(false);
   const [creditCardData, setCreditCardData] = useState<any | null>(null);
   const [virtualInitialTab, setVirtualInitialTab] = useState<'debito' | 'credito'>('debito');
 
@@ -475,34 +494,60 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
               <div className="space-y-6 lg:col-span-5">
               {/* Balance */}
               <div
-                onClick={() => setBalanceExpanded(!balanceExpanded)}
-                className="rounded-[2rem] bg-white border border-black/8 p-6 shadow-sm cursor-pointer select-none transition-all hover:border-black/20 hover:shadow-md"
+                className="rounded-[2rem] bg-white border border-black/8 p-6 shadow-sm select-none transition-all hover:border-black/20 hover:shadow-md"
               >
                 <div className="flex justify-between items-start">
                   <div className="text-left">
                         <p className="text-[10px] text-zinc-400 uppercase font-bold tracking-widest mb-1">Saldo disponible</p>
                         <p className="text-4xl font-black text-black tracking-tight">
-                          {(() => {
-                            const copAcc = accounts.find(a => a.currency === 'COP');
-                            return copFmt.format(copAcc ? copAcc.balance : 0);
-                          })()}
+                          {balanceHidden
+                            ? HIDDEN_BALANCE
+                            : (() => {
+                                const copAcc = accounts.find(a => a.currency === 'COP');
+                                return copFmt.format(copAcc ? copAcc.balance : 0);
+                              })()}
                         </p>
                       </div>
-                  <button className="w-8 h-8 rounded-full bg-zinc-50 border border-black/5 flex items-center justify-center text-black">
-                    {balanceExpanded ? Icons.chevronDown : Icons.chevronRight}
-                  </button>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBalanceHidden((prev) => !prev);
+                      }}
+                      aria-label={balanceHidden ? 'Mostrar saldo' : 'Ocultar saldo'}
+                      className="w-8 h-8 rounded-full bg-zinc-50 border border-black/5 flex items-center justify-center text-black hover:bg-zinc-100 transition-colors"
+                    >
+                      {balanceHidden ? Icons.eyeClosed : Icons.eyeOpen}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBalanceExpanded(!balanceExpanded)}
+                      aria-label={balanceExpanded ? 'Contraer cuentas' : 'Expandir cuentas'}
+                      className="w-8 h-8 rounded-full bg-zinc-50 border border-black/5 flex items-center justify-center text-black hover:bg-zinc-100 transition-colors"
+                    >
+                      {balanceExpanded ? Icons.chevronDown : Icons.chevronRight}
+                    </button>
+                  </div>
                 </div>
                 {balanceExpanded && (
                   <div className="pt-4 border-t border-black/5 mt-4 space-y-2.5 animate-fade-in text-left">
                     <p className="text-[9px] text-zinc-400 uppercase font-bold tracking-wider">Cuentas Personales</p>
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-xs text-zinc-500 font-semibold">Cuenta de Ahorros</span>
-                      <span className="text-sm font-bold text-black">{copFmt.format((accounts.find(a => a.currency === 'COP')?.balance) ?? 0)}</span>
+                      <span className="text-sm font-bold text-black">
+                        {balanceHidden ? HIDDEN_BALANCE : copFmt.format((accounts.find(a => a.currency === 'COP')?.balance) ?? 0)}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center py-0.5">
                       <span className="text-xs text-zinc-500 font-semibold">Cuenta Digital (USD)</span>
                       <span className="text-sm font-mono font-bold text-black">
-                        {usdFmt.format((accounts.find(a => a.currency === 'USD')?.balance) ?? 0)} <span className="text-[10px] font-sans text-zinc-400">USD</span>
+                        {balanceHidden
+                          ? HIDDEN_BALANCE
+                          : <>
+                              {usdFmt.format((accounts.find(a => a.currency === 'USD')?.balance) ?? 0)}{' '}
+                              <span className="text-[10px] font-sans text-zinc-400">USD</span>
+                            </>}
                       </span>
                     </div>
                   </div>
@@ -875,7 +920,7 @@ function SimulacionInnerView() {
   const [usd, setUsd] = useState('100');
   const [cop, setCop] = useState('');
 
-  useState(() => { fetchRate(); });
+  useEffect(() => { fetchRate(); }, [fetchRate]);
   const rate = rateData?.rate || 4032.50;
 
   const handleUsdChange = (val: string) => {
@@ -925,8 +970,13 @@ function SimulacionInnerView() {
 
 function TMRSharedView() {
   const { rateData, loading, fetchRate } = useExchangeRate();
-  useState(() => { fetchRate(); });
+  const { history, loading: historyLoading, fetchHistory } = useTrmHistory();
   const rate = rateData?.rate || 4032.50;
+
+  useEffect(() => {
+    fetchRate();
+    fetchHistory();
+  }, [fetchRate, fetchHistory]);
 
   return (
     <div className="space-y-6 text-left">
@@ -938,13 +988,25 @@ function TMRSharedView() {
       <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm text-center space-y-4">
         <span className="text-[10px] text-zinc-400 font-bold uppercase tracking-wider block">Tasa Representativa del Mercado</span>
         <p className="text-4xl font-black text-black">{copFmtFull.format(rate)} <span className="text-xs text-zinc-400 font-bold">COP</span></p>
+        {rateData?.date && (
+          <p className="text-[10px] text-zinc-400 font-semibold">Vigencia: {rateData.date}</p>
+        )}
         <button
-          onClick={() => fetchRate()}
-          disabled={loading}
-          className="px-4 py-2 text-xs font-bold rounded-xl border border-black/10 hover:bg-zinc-50 transition-all"
+          onClick={() => { fetchRate(); fetchHistory(); }}
+          disabled={loading || historyLoading}
+          className="px-4 py-2 text-xs font-bold rounded-xl border border-black/10 hover:bg-zinc-50 transition-all disabled:opacity-50"
         >
-          {loading ? 'Cargando...' : 'Actualizar TRM'}
+          {loading || historyLoading ? 'Cargando...' : 'Actualizar TRM'}
         </button>
+      </div>
+
+      <div className="bg-white border border-black/8 rounded-[2rem] p-5 shadow-sm">
+        <h3 className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-4">Evolución TRM (30 días)</h3>
+        {historyLoading && history.length === 0 ? (
+          <div className="h-44 flex items-center justify-center text-xs text-zinc-400">Cargando gráfica...</div>
+        ) : (
+          <TrmChart data={history} />
+        )}
       </div>
     </div>
   );
@@ -1002,10 +1064,28 @@ function SendModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
   const [currency, setCurrency] = useState<'COP' | 'USD'>('COP');
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmStep, setConfirmStep] = useState(false);
+  const [maskedName, setMaskedName] = useState<string | null>(null);
+  const [lookupLoading, setLookupLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const resetForm = () => {
+    setPhone('');
+    setAmount('');
+    setCurrency('COP');
+    setConfirmStep(false);
+    setMaskedName(null);
+    setError(null);
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
 
   if (!isOpen) return null;
 
-  const handleSend = async (e: React.FormEvent) => {
+  const handleReview = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     const amt = Number(amount);
@@ -1014,9 +1094,32 @@ function SendModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
       return;
     }
 
-    const ok = window.confirm(`Revisa bien el número ${phone} y el monto ${amt} ${currency}. ¿Deseas continuar?`);
-    if (!ok) return;
+    setLookupLoading(true);
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+      const token = AuthService.getAccessToken();
+      if (!token) throw new Error('No autenticado.');
 
+      const res = await fetch(`${API_URL}/api/v1/transfers/lookup?phone=${encodeURIComponent(phone)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'No se encontró el destinatario.');
+
+      setMaskedName(body.maskedName);
+      setConfirmStep(true);
+    } catch (err: any) {
+      setError(err.message || 'No se pudo verificar el destinatario.');
+    } finally {
+      setLookupLoading(false);
+    }
+  };
+
+  const handleSend = async () => {
+    setError(null);
+    const amt = Number(amount);
+
+    setSending(true);
     try {
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
       const token = AuthService.getAccessToken();
@@ -1037,31 +1140,72 @@ function SendModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
-        setPhone('');
-        setAmount('');
+        resetForm();
         onClose();
         if (onSuccess) onSuccess();
       }, 2000);
     } catch (err: any) {
       setError(err.message || 'Error en la transferencia.');
+    } finally {
+      setSending(false);
     }
   };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/45 backdrop-blur-sm" onClick={handleClose} />
       <div className="relative bg-white border border-black/8 rounded-[2rem] p-6 max-w-sm w-full shadow-lg text-black space-y-4">
         <div className="flex justify-between items-center">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">Enviar dinero</h3>
-          <button onClick={onClose} className="text-zinc-400 hover:text-black text-xs font-bold">✕</button>
+          <h3 className="text-xs font-bold uppercase tracking-wider text-zinc-400">
+            {confirmStep ? 'Confirmar envío' : 'Enviar dinero'}
+          </h3>
+          <button onClick={handleClose} className="text-zinc-400 hover:text-black text-xs font-bold">✕</button>
         </div>
         {success ? (
           <div className="flex flex-col items-center py-4 space-y-2">
             <span className="text-2xl">✓</span>
             <p className="text-sm font-bold">¡Envío Exitoso!</p>
           </div>
+        ) : confirmStep ? (
+          <div className="space-y-4">
+            <div className="bg-zinc-50 border border-black/5 rounded-2xl p-4 space-y-3 text-xs">
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-400 font-semibold">Destinatario</span>
+                <span className="font-black text-black text-right">{maskedName}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-400 font-semibold">Celular</span>
+                <span className="font-bold">{phone}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="text-zinc-400 font-semibold">Monto</span>
+                <span className="font-black">{currency === 'COP' ? copFmt.format(Number(amount)) : usdFmt.format(Number(amount))} {currency}</span>
+              </div>
+            </div>
+            <p className="text-[10px] text-zinc-400 leading-relaxed">
+              Verifica que los datos sean correctos antes de confirmar el envío.
+            </p>
+            {error && <div className="text-xs text-red-600 font-bold">{error}</div>}
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setConfirmStep(false); setMaskedName(null); }}
+                className="flex-1 py-3.5 border border-black/10 text-xs font-bold rounded-xl hover:bg-zinc-50"
+              >
+                Volver
+              </button>
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={sending}
+                className="flex-1 py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800 disabled:opacity-50"
+              >
+                {sending ? 'Enviando...' : 'Confirmar envío'}
+              </button>
+            </div>
+          </div>
         ) : (
-          <form onSubmit={handleSend} className="space-y-4">
+          <form onSubmit={handleReview} className="space-y-4">
             <input
               type="tel" required placeholder="Número de celular" value={phone} onChange={e => setPhone(e.target.value)}
               className="w-full p-3 bg-zinc-50 border border-black/8 rounded-xl text-xs outline-none"
@@ -1077,7 +1221,13 @@ function SendModal({ isOpen, onClose, onSuccess }: { isOpen: boolean; onClose: (
               />
             </div>
             {error && <div className="text-xs text-red-600 font-bold">{error}</div>}
-            <button type="submit" className="w-full py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800">Confirmar Envío</button>
+            <button
+              type="submit"
+              disabled={lookupLoading}
+              className="w-full py-3.5 bg-black text-white text-xs font-bold rounded-xl hover:bg-zinc-800 disabled:opacity-50"
+            >
+              {lookupLoading ? 'Verificando...' : 'Revisar envío'}
+            </button>
           </form>
         )}
       </div>
@@ -1161,6 +1311,8 @@ function ComprobanteView({ detail, loading, onBack }: { detail: any; loading: bo
   const title = isIncome ? '¡Recibido!' : '¡Pago exitoso!';
   const partyLabel = isIncome ? 'Recibido de' : 'Pagado en';
   const partyValue = detail.description || detail.category || 'Jes Bank';
+  const counterpartyLabel = isIncome ? 'Remitente' : 'Destinatario';
+  const counterpartyValue = detail.counterpartyName || null;
   const refCode = (detail.referenceCode || detail.reference || detail.id || '')
     .toString()
     .replace(/-/g, '')
@@ -1175,6 +1327,7 @@ function ComprobanteView({ detail, loading, onBack }: { detail: any; loading: bo
     `${title}`,
     `${amountLabel}: ${copFmt.format(absAmount)} ${currency}`,
     `${partyLabel}: ${partyValue}`,
+    ...(counterpartyValue ? [`${counterpartyLabel}: ${counterpartyValue}`] : []),
     `Fecha: ${formatReceiptDate(detail.createdAt)}`,
     `Referencia: ${refCode}`,
     `Estado: Completado`,
@@ -1205,6 +1358,7 @@ function ComprobanteView({ detail, loading, onBack }: { detail: any; loading: bo
 
   const rows: { label: string; value: ReactNode }[] = [
     { label: partyLabel, value: partyValue },
+    ...(counterpartyValue ? [{ label: counterpartyLabel, value: counterpartyValue }] : []),
     { label: 'Fecha', value: formatReceiptDate(detail.createdAt) },
     { label: 'Referencia', value: refCode },
     { label: 'Origen de los fondos', value: `Cuenta de ahorros ${maskAccount(detail.accountNumber)}` },

@@ -3,13 +3,16 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AuthService } from '../../services/auth.service';
+import { useIdleLock } from '../../hooks/useIdleLock';
 import PersonalDashboard from '../../components/dashboard/PersonalDashboard';
 import CompanyDashboard from '../../components/dashboard/CompanyDashboard';
+import SessionLockOverlay from '../../components/auth/SessionLockOverlay';
 
 export default function SimulatorPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { locked, unlock } = useIdleLock(!loading && !!user);
 
   useEffect(() => {
     // Check if the user is authenticated
@@ -43,10 +46,19 @@ export default function SimulatorPage() {
     );
   }
 
-  // If docType is NIT, render the Company Dashboard. Otherwise, render the Personal Dashboard.
-  if (user?.docType === 'NIT') {
-    return <CompanyDashboard user={user} onLogout={handleLogout} />;
-  }
+  const dashboard = user?.docType === 'NIT'
+    ? <CompanyDashboard user={user} onLogout={handleLogout} />
+    : <PersonalDashboard user={user} onLogout={handleLogout} />;
 
-  return <PersonalDashboard user={user} onLogout={handleLogout} />;
+  return (
+    <>
+      {dashboard}
+      {locked && (
+        <SessionLockOverlay
+          user={user}
+          onUnlock={unlock}
+        />
+      )}
+    </>
+  );
 }

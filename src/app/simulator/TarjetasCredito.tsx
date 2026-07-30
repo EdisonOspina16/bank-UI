@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { AuthService } from '../../services/auth.service';
 
 const Icon = {
   ChevronLeft: ({ size = 20 }: { size?: number }) => (
@@ -39,13 +40,6 @@ const Icon = {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <line x1="18" y1="6" x2="6" y2="18" />
       <line x1="6" y1="6" x2="18" y2="18" />
-    </svg>
-  ),
-  Wifi: ({ size = 16 }: { size?: number }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12.55a11 11 0 0114.08 0" />
-      <path d="M8.53 16.11a6 6 0 016.95 0" />
-      <path d="M12 20v.01" />
     </svg>
   ),
 };
@@ -122,18 +116,7 @@ function Header({ title, onBack }: { title: string; onBack?: () => void }) {
   );
 }
 
-function Chip({ color }: { color: string }) {
-  return (
-    <div style={{ width: 30, height: 22, borderRadius: 5, background: `${color}26`, display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: '1fr 1fr', gap: 2, padding: 3, boxSizing: 'border-box' }}>
-      {[0, 1, 2, 3].map((i) => (
-        <div key={i} style={{ background: color, borderRadius: 1, opacity: 0.85 }} />
-      ))}
-    </div>
-  );
-}
-
 export function CardFace({ producto, mini }: { producto: any; mini?: boolean }) {
-  // Versión interactiva: tarjeta con efecto flip para ver anverso y reverso al tocar
   const [flipped, setFlipped] = useState(false);
 
   return (
@@ -149,19 +132,16 @@ export function CardFace({ producto, mini }: { producto: any; mini?: boolean }) 
           {/* Front */}
           <div style={{ ...s.frontFace, background: producto.bg, opacity: flipped ? 0 : 1, pointerEvents: flipped ? 'none' : 'auto', transform: 'rotateY(0deg)' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              {/* left: subtle chip-like mark */}
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 <div style={{ width: 28, height: 18, borderRadius: 4, background: 'rgba(255,255,255,0.12)' }} />
               </div>
 
-              {/* center: JES branding, tipografía clásica y elegante */}
               <div style={{ marginLeft: 'auto', marginRight: 'auto', textAlign: 'center' }}>
                 <span style={{ fontFamily: "Georgia, 'Times New Roman', serif", fontStyle: 'normal', fontWeight: 700, letterSpacing: 1.5, fontSize: mini ? 16 : 20, color: producto.accent, textTransform: 'uppercase' }}>
                   JES
                 </span>
               </div>
 
-              {/* right: small JB badge */}
               <div style={{ marginLeft: 'auto' }}>
                 <div style={{ width: 30, height: 30, borderRadius: 8, background: 'rgba(255,255,255,0.95)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#111', fontWeight: 800 }}>JB</div>
               </div>
@@ -173,10 +153,6 @@ export function CardFace({ producto, mini }: { producto: any; mini?: boolean }) 
                 {producto.network}
               </div>
             </div>
-
-            {/* Small accent animation */}
-            <div style={{ position: 'absolute', right: 18, bottom: 18, width: 64, height: 64, borderRadius: 999, boxShadow: 'inset -8px -8px 30px rgba(255,255,255,0.02), inset 8px 8px 30px rgba(0,0,0,0.08)', opacity: 0.06 }} />
-
           </div>
 
           {/* Back */}
@@ -233,9 +209,9 @@ function Detalle({ producto, onSolicitar }: { producto: any; onSolicitar: () => 
       <div style={s.sectionCard}>
         <div style={s.sectionLabel}>Condiciones</div>
         {rows.map(([label, value]) => (
-          <div key={label as string} style={s.condRow}>
+          <div key={label} style={s.condRow}>
             <span style={s.condLabel}>{label}</span>
-            <span style={s.condValue}>{value as string}</span>
+            <span style={s.condValue}>{value}</span>
           </div>
         ))}
         <div style={s.disclaimer}>
@@ -261,16 +237,43 @@ function Detalle({ producto, onSolicitar }: { producto: any; onSolicitar: () => 
   );
 }
 
-function UploadZone({ label, done, onToggle }: { label: string; done: boolean; onToggle: () => void }) {
+function UploadZone({
+  label,
+  done,
+  loading,
+  onFileSelect,
+}: {
+  label: string;
+  done: boolean;
+  loading: boolean;
+  onFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   return (
-    <button onClick={onToggle} style={{ ...s.uploadZone, borderColor: done ? '#111' : '#E1E1E1' }}>
+    <button onClick={handleClick} disabled={loading} style={{ ...s.uploadZone, borderColor: done ? '#10b981' : '#E1E1E1', cursor: loading ? 'not-allowed' : 'pointer' }}>
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={onFileSelect}
+        accept="image/*,application/pdf"
+        style={{ display: 'none' }}
+      />
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <div style={{ ...s.uploadIcon, background: done ? '#111' : '#F2F2F0' }}>
-          {done ? <Icon.Check /> : <Icon.Upload />}
+        <div style={{ ...s.uploadIcon, background: done ? '#fee2e2' : (loading ? '#f3f4f6' : '#F2F2F0'), color: done ? '#10b981' : '#111' }}>
+          {loading ? '...' : (done ? '✓' : <Icon.Upload />)}
         </div>
         <div style={{ textAlign: 'left' }}>
           <div style={s.uploadLabel}>{label}</div>
-          <div style={s.uploadHint}>{done ? 'Documento cargado' : 'JPG, PNG o PDF · máx 5MB'}</div>
+          <div style={s.uploadHint}>
+            {loading ? 'Subiendo archivo...' : (done ? 'Documento cargado con éxito' : 'JPG, PNG o PDF · máx 5MB')}
+          </div>
         </div>
       </div>
       <Icon.FileText />
@@ -278,15 +281,164 @@ function UploadZone({ label, done, onToggle }: { label: string; done: boolean; o
   );
 }
 
-function Solicitud({ producto, onEnviar }: { producto: any; onEnviar: () => void }) {
+type SolicitudFormData = {
+  nombre: string;
+  fechaNacimiento: string;
+  cedulaNumero: string;
+  ciudad: string;
+  ocupacion: string;
+  ingresos: number;
+  urlDocumentoCedula: string;
+  urlDocumentoIngresos: string;
+};
+
+function Solicitud({
+  producto,
+  onEnviar,
+}: {
+  producto: any;
+  onEnviar: (formData: SolicitudFormData) => void;
+}) {
   const [nombre, setNombre] = useState('');
+  const [fecha, setFecha] = useState(''); // formato DD/MM/AAAA
   const [ingresos, setIngresos] = useState('');
-  const [cedula, setCedula] = useState(false);
-  const [comprobante, setComprobante] = useState(false);
-  const [acepta, setAcepta] = useState(false);
+  const [cedulaNumero, setCedulaNumero] = useState('');
+  const [ciudad, setCiudad] = useState('');
+  const [ocupacion, setOcupacion] = useState('');
+  
+  // Doc URLs
+  const [urlCedula, setUrlCedula] = useState('');
+  const [urlComprobante, setUrlComprobante] = useState('');
+  
+  // Loading upload states
+  const [loadingCedula, setLoadingCedula] = useState(false);
+  const [loadingComprobante, setLoadingComprobante] = useState(false);
+
+  const [isEditing, setIsEditing] = useState(false);
+
+  const [aceptaReglamento, setAceptaReglamento] = useState(false);
+  const [autorizaConsulta, setAutorizaConsulta] = useState(false);
   const [verReglamento, setVerReglamento] = useState(false);
 
-  const listo = nombre.trim() && ingresos.trim() && cedula && comprobante && acepta;
+  const listo =
+    nombre.trim() &&
+    fecha.trim().length === 10 &&
+    cedulaNumero.trim() &&
+    ciudad.trim() &&
+    ocupacion.trim() &&
+    ingresos.trim() &&
+    urlCedula &&
+    urlComprobante &&
+    aceptaReglamento &&
+    autorizaConsulta;
+
+  useEffect(() => {
+    // Preload details from profile API
+    const token = AuthService.getAccessToken();
+    if (!token) return;
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    fetch(`${API_URL}/api/perfil`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.profile) {
+          setNombre(`${data.profile.firstName} ${data.profile.lastName}`.trim());
+          setCiudad(data.profile.ciudad || '');
+          setOcupacion(data.profile.ocupacion || '');
+          setIngresos(data.profile.ingresosMensuales ? String(data.profile.ingresosMensuales) : '');
+          
+          if (data.profile.birthDate) {
+            const d = new Date(data.profile.birthDate);
+            const dd = String(d.getDate()).padStart(2, '0');
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const yyyy = d.getFullYear();
+            setFecha(`${dd}/${mm}/${yyyy}`);
+          }
+          if (data.profile.docNumber) {
+            setCedulaNumero(data.profile.docNumber);
+          }
+        }
+      })
+      .catch((e) => console.error('Error preloading profile info:', e));
+  }, []);
+
+  const toBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, type: 'cedula' | 'comprobante') => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const file = files[0];
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const token = AuthService.getAccessToken();
+
+    if (type === 'cedula') setLoadingCedula(true);
+    else setLoadingComprobante(true);
+
+    try {
+      const base64 = await toBase64(file);
+      const res = await fetch(`${API_URL}/api/tarjetas-credito/upload`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          file: base64,
+          fileName: file.name,
+          fileType: file.type,
+          documentKind: type === 'cedula' ? 'cedula' : 'ingresos',
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to upload document');
+
+      if (type === 'cedula') {
+        setUrlCedula(body.url);
+      } else {
+        setUrlComprobante(body.url);
+      }
+    } catch (err: any) {
+      alert(`Error al subir archivo: ${err.message}`);
+    } finally {
+      if (type === 'cedula') setLoadingCedula(false);
+      else setLoadingComprobante(false);
+    }
+  };
+
+  function handleFechaInput(v: string) {
+    const digits = v.replace(/\D/g, '').slice(0, 8);
+    let out = '';
+    if (digits.length >= 2) {
+      out += digits.slice(0, 2) + '/';
+      if (digits.length >= 4) {
+        out += digits.slice(2, 4) + '/';
+        out += digits.slice(4);
+      } else {
+        out += digits.slice(2);
+      }
+    } else {
+      out = digits;
+    }
+    setFecha(out);
+  }
+
+  const inputStyle = {
+    ...s.input,
+    background: isEditing ? '#F7F7F5' : 'rgba(255,255,255,0.03)',
+    color: isEditing ? '#111' : '#6a6a6a',
+    cursor: isEditing ? 'text' : 'not-allowed',
+    border: '1px solid #EFEFEC',
+  };
 
   return (
     <div style={s.body}>
@@ -294,34 +446,87 @@ function Solicitud({ producto, onEnviar }: { producto: any; onEnviar: () => void
       <div style={s.sub}>{producto.nombre} · {producto.franquicia}</div>
 
       <div style={s.sectionCard}>
-        <div style={s.sectionLabel}>Datos personales</div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+          <div style={s.sectionLabel}>Datos personales</div>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            style={{ background: 'transparent', border: 'none', color: '#7c3aed', fontWeight: 'bold', fontSize: 12, cursor: 'pointer' }}
+          >
+            {isEditing ? 'Bloquear edición' : 'Editar datos'}
+          </button>
+        </div>
+
         <label style={s.fieldLabel}>Nombre completo</label>
-        <input style={s.input} placeholder="Como aparece en tu cédula" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+        <input style={inputStyle} readOnly={!isEditing} placeholder="Como aparece en tu cédula" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+
+        <div style={s.row}>
+          <div style={{ flex: 1 }}>
+            <label style={s.fieldLabel}>Fecha de nacimiento</label>
+            <input
+              style={inputStyle}
+              readOnly={!isEditing}
+              placeholder="DD/MM/AAAA"
+              value={fecha}
+              onChange={(e) => handleFechaInput(e.target.value)}
+              inputMode="numeric"
+            />
+          </div>
+          <div style={{ width: 12 }} />
+          <div style={{ flex: 1 }}>
+            <label style={s.fieldLabel}>Número de cédula</label>
+            <input style={inputStyle} readOnly={!isEditing} placeholder="1020XXXXXX" value={cedulaNumero} onChange={(e) => setCedulaNumero(e.target.value)} inputMode="numeric" />
+          </div>
+        </div>
+
+        <label style={s.fieldLabel}>Ciudad de residencia</label>
+        <input style={inputStyle} readOnly={!isEditing} placeholder="Medellín" value={ciudad} onChange={(e) => setCiudad(e.target.value)} />
+
+        <label style={s.fieldLabel}>Ocupación</label>
+        <input style={inputStyle} readOnly={!isEditing} placeholder="Empleado" value={ocupacion} onChange={(e) => setOcupacion(e.target.value)} />
+
         <label style={s.fieldLabel}>Ingresos mensuales</label>
-        <input style={s.input} placeholder="$ 2.000.000" value={ingresos} onChange={(e) => setIngresos(e.target.value)} inputMode="numeric" />
+        <input style={inputStyle} readOnly={!isEditing} placeholder="$ 2.000.000" value={ingresos} onChange={(e) => setIngresos(e.target.value)} inputMode="numeric" />
       </div>
 
       <div style={s.sectionCard}>
         <div style={s.sectionLabel}>Documentos</div>
-        <UploadZone label="Cédula de ciudadanía" done={cedula} onToggle={() => setCedula((v) => !v)} />
+        <UploadZone label="Cédula de ciudadanía" done={!!urlCedula} loading={loadingCedula} onFileSelect={(e) => handleFileUpload(e, 'cedula')} />
         <div style={{ height: 10 }} />
-        <UploadZone label="Comprobante de ingresos" done={comprobante} onToggle={() => setComprobante((v) => !v)} />
+        <UploadZone label="Comprobante de ingresos" done={!!urlComprobante} loading={loadingComprobante} onFileSelect={(e) => handleFileUpload(e, 'comprobante')} />
       </div>
 
       <div style={s.sectionCard}>
-        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-          <input type="checkbox" checked={acepta} onChange={(e) => setAcepta(e.target.checked)} style={{ marginTop: 3 }} />
-          <div style={{ fontSize: 13, color: '#4a4a4a', lineHeight: 1.5 }}>
-            Acepto el{' '}
-            <span style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }} onClick={() => setVerReglamento(true)}>
-              reglamento de tarjeta de crédito
-            </span>{' '}
-            de JES BANK y autorizo la consulta de mi historial crediticio.
+        <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <input type="checkbox" checked={aceptaReglamento} onChange={(e) => setAceptaReglamento(e.target.checked)} style={{ marginTop: 3 }} />
+            <div style={{ fontSize: 13, color: '#4a4a4a', lineHeight: 1.5 }}>
+              Acepto el{' '}
+              <span style={{ color: '#111', fontWeight: 600, cursor: 'pointer' }} onClick={() => setVerReglamento(true)}>
+                reglamento de tarjeta de crédito
+              </span>{' '}
+              de JES BANK.
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+            <input type="checkbox" checked={autorizaConsulta} onChange={(e) => setAutorizaConsulta(e.target.checked)} style={{ marginTop: 3 }} />
+            <div style={{ fontSize: 13, color: '#4a4a4a', lineHeight: 1.5 }}>
+              Autorizo la consulta y reporte de mi información en centrales de riesgo (Datacrédito, TransUnion).
+            </div>
           </div>
         </div>
       </div>
 
-      <button style={{ ...s.primaryBtn, opacity: listo ? 1 : 0.4 }} disabled={!listo} onClick={onEnviar}>
+      <button style={{ ...s.primaryBtn, opacity: listo ? 1 : 0.4 }} disabled={!listo} onClick={() => onEnviar({
+        nombre,
+        fechaNacimiento: fecha,
+        cedulaNumero,
+        ciudad,
+        ocupacion,
+        ingresos: Number(ingresos.replace(/\D/g, '')) || 0,
+        urlDocumentoCedula: urlCedula,
+        urlDocumentoIngresos: urlComprobante
+      })}>
         Enviar solicitud
       </button>
 
@@ -388,21 +593,116 @@ function Aprobada({ producto, onVerTarjeta }: { producto: any; onVerTarjeta: (p:
   );
 }
 
-export default function TarjetasCredito({ onAprobada, onBackToHome }: { onAprobada?: (p: any) => void; onBackToHome?: () => void }) {
-  const [screen, setScreen] = useState<'catalog' | 'detail' | 'apply' | 'processing' | 'approved'>('catalog');
+function Rechazada({ producto, motivo, onBackToCatalog }: { producto: any; motivo: string; onBackToCatalog: () => void }) {
+  return (
+    <div style={{ ...s.body, alignItems: 'center', textAlign: 'center' }}>
+      <div style={{ ...s.checkCircle, background: '#dc2626' }}>
+        <span style={{ fontSize: 24, color: '#fff', fontWeight: 'bold' }}>✕</span>
+      </div>
+      <div style={s.h1}>Solicitud rechazada</div>
+      <div style={s.sub}>
+        Lamentablemente tu solicitud para la tarjeta <strong>{producto.nombre}</strong> no ha sido aprobada.
+      </div>
+      <div style={{ background: '#fff', border: '1px solid #fee2e2', color: '#991b1b', padding: 16, borderRadius: 16, fontSize: 13, marginTop: 18, textAlign: 'left', lineHeight: 1.5 }}>
+        <strong>Motivo de la decisión:</strong><br />
+        {motivo}
+      </div>
+      <button style={{ ...s.primaryBtn, marginTop: 24 }} onClick={onBackToCatalog}>
+        Volver al catálogo
+      </button>
+    </div>
+  );
+}
+
+export default function TarjetasCredito({
+  onAprobada,
+  onBackToHome,
+}: {
+  onAprobada?: (p: any) => void;
+  onBackToHome?: () => void;
+}) {
+  const [screen, setScreen] = useState<'catalog' | 'detail' | 'apply' | 'processing' | 'approved' | 'rejected'>('catalog');
   const [producto, setProducto] = useState<any | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('');
 
   const titles = {
     catalog: 'TARJETAS',
     detail: producto?.nombre?.toUpperCase() || 'TARJETA',
     apply: 'SOLICITUD',
-    processing: 'TARJETAS',
-    approved: 'TARJETAS',
+    processing: 'PROCESANDO',
+    approved: 'APROBADA',
+    rejected: 'RECHAZADA',
   } as const;
+
+  const handleApplySubmission = async (formData: {
+    nombre: string;
+    fechaNacimiento: string;
+    cedulaNumero: string;
+    ciudad: string;
+    ocupacion: string;
+    ingresos: number;
+    urlDocumentoCedula: string;
+    urlDocumentoIngresos: string;
+  }) => {
+    setScreen('processing');
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    try {
+      const res = await fetch(`${API_URL}/api/tarjetas-credito/solicitar`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          productoId: producto.id,
+          nombre: formData.nombre,
+          fechaNacimiento: formData.fechaNacimiento,
+          cedulaNumero: formData.cedulaNumero,
+          ciudad: formData.ciudad,
+          ocupacion: formData.ocupacion,
+          ingresos: formData.ingresos,
+          urlDocumentoCedula: formData.urlDocumentoCedula,
+          urlDocumentoIngresos: formData.urlDocumentoIngresos,
+        }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Request failed');
+
+      if (body.aprobada) {
+        setScreen('approved');
+        // Save local approved card information in the format required by the onAprobada callback
+        // The callback expects an object containing product info, card id, cupo, number etc.
+        const mergedProduct = {
+          ...producto,
+          id: body.tarjeta.id,
+          cupoAsignado: body.tarjeta.cupoAsignado,
+          gastado: body.tarjeta.gastado,
+          numero: body.tarjeta.numero,
+          cvv: body.tarjeta.cvv,
+          vence: body.tarjeta.vence,
+        };
+        // Trigger verification
+        if (onAprobada) {
+          onAprobada(mergedProduct);
+        }
+      } else {
+        setRejectionReason(body.motivo || 'No se cumplieron los criterios de aprobación crediticia.');
+        setScreen('rejected');
+      }
+    } catch (e: any) {
+      setRejectionReason(e.message || 'Ocurrió un error inesperado al procesar tu solicitud.');
+      setScreen('rejected');
+    }
+  };
 
   return (
     <div style={s.frame}>
-      <style>{"@keyframes spin{to{transform:rotate(360deg)}}"}</style>
+      <style>{`
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
       <Header
         title={titles[screen]}
         onBack={() => {
@@ -425,10 +725,7 @@ export default function TarjetasCredito({ onAprobada, onBackToHome }: { onAproba
       {screen === 'apply' && (
         <Solicitud
           producto={producto}
-          onEnviar={() => {
-            setScreen('processing');
-            setTimeout(() => setScreen('approved'), 1800);
-          }}
+          onEnviar={handleApplySubmission}
         />
       )}
       {screen === 'processing' && <Procesando />}
@@ -436,9 +733,16 @@ export default function TarjetasCredito({ onAprobada, onBackToHome }: { onAproba
         <Aprobada
           producto={producto}
           onVerTarjeta={(p) => {
-            onAprobada && onAprobada(p);
+            // onAprobada is already executed during submission. Let's return to catalog.
             setScreen('catalog');
           }}
+        />
+      )}
+      {screen === 'rejected' && (
+        <Rechazada
+          producto={producto}
+          motivo={rejectionReason}
+          onBackToCatalog={() => setScreen('catalog')}
         />
       )}
     </div>
@@ -490,8 +794,10 @@ const s: Record<string, any> = {
   fieldLabel: { fontSize: 11, color: '#9a9a9a', marginTop: 10, marginBottom: 6, display: 'block' },
   input: { width: '100%', background: '#F7F7F5', border: '1px solid #EFEFEC', borderRadius: 12, padding: '11px 12px', fontSize: 13, color: '#111', boxSizing: 'border-box' },
 
-  uploadZone: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAF9', border: '1.5px dashed #E1E1E1', borderRadius: 14, padding: '12px 14px', cursor: 'pointer' },
-  uploadIcon: { width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' },
+  row: { display: 'flex', gap: 10, alignItems: 'center' },
+
+  uploadZone: { width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#FAFAF9', border: '1.5px dashed #E1E1E1', borderRadius: 14, padding: '12px 14px', cursor: 'pointer', borderStyle: 'dashed' },
+  uploadIcon: { width: 30, height: 30, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, fontWeight: 'bold' },
   uploadLabel: { fontSize: 13, fontWeight: 600, color: '#111' },
   uploadHint: { fontSize: 11, color: '#adadad', marginTop: 1 },
 

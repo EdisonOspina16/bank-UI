@@ -93,6 +93,32 @@ export class AuthService {
     return null;
   }
 
+  static async refreshSession(): Promise<string | null> {
+    if (typeof window === 'undefined') return null;
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!refreshToken) return null;
+
+    try {
+      const response = await fetch(`${API_URL}/api/v1/auth/refresh`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refreshToken }),
+      });
+      if (!response.ok) return null;
+      const body = await response.json();
+      if (body?.tokens?.accessToken) {
+        localStorage.setItem('accessToken', body.tokens.accessToken);
+        if (body.tokens.refreshToken) {
+          localStorage.setItem('refreshToken', body.tokens.refreshToken);
+        }
+        return body.tokens.accessToken as string;
+      }
+    } catch {
+      return null;
+    }
+    return null;
+  }
+
   static logout(): void {
     if (typeof window !== 'undefined') {
       localStorage.removeItem('accessToken');

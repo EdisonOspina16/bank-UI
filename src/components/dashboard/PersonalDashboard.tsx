@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useExchangeRate } from '../../hooks/useExchangeRate';
 import { AuthService } from '../../services/auth.service';
 import { FEATURES } from '../../lib/features';
-import TarjetasCredito from '../../app/simulator/TarjetasCredito';
+import TarjetasCredito, { PRODUCTS } from '../../app/simulator/TarjetasCredito';
 import TarjetasVirtuales from '../../app/simulator/TarjetasVirtuales';
 import NotificationsComponent from '../../app/simulator/notifications';
 import ProfileComponent from '../../app/simulator/profile';
@@ -191,8 +191,27 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
   const [creditCardData, setCreditCardData] = useState<any | null>(null);
   const [virtualInitialTab, setVirtualInitialTab] = useState<'debito' | 'credito'>('debito');
 
+  const mergeCreditCardForUi = (card: any) => {
+    const catalog = PRODUCTS.find((p) => p.id === card.productoId) || PRODUCTS[0];
+    return {
+      ...catalog,
+      ...card,
+      id: card.id,
+      productoId: card.productoId,
+      nombre: catalog?.nombre || card.productoId?.toUpperCase?.() || 'Tarjeta',
+      cupoAsignado: Number(card.cupoAsignado ?? catalog?.cupoNumero ?? 0),
+      gastado: Number(card.gastado ?? 0),
+      numero: card.numero,
+      cvv: card.cvv,
+      vence: card.vence,
+      estado: card.estado,
+    };
+  };
+
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showNotificationsModal, setShowNotificationsModal] = useState(false);
+  const [activeToast, setActiveToast] = useState<{ title: string; message: string } | null>(null);
+  const [seenNotificationIds, setSeenNotificationIds] = useState<string[]>([]);
 
   // Modals
   const [showDeposit, setShowDeposit] = useState(false);
@@ -217,7 +236,13 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
       setMovementsError(null);
       try {
         if (!token) throw new Error('No autenticado.');
-        const res = await fetch(`${API_URL}/api/v1/movements`, { headers: { Authorization: `Bearer ${token}` } });
+        let res = await fetch(`${API_URL}/api/v1/movements`, { headers: { Authorization: `Bearer ${token}` } });
+        if (res.status === 401) {
+          const refreshed = await AuthService.refreshSession();
+          if (refreshed) {
+            res = await fetch(`${API_URL}/api/v1/movements`, { headers: { Authorization: `Bearer ${refreshed}` } });
+          }
+        }
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || 'Failed to fetch movements');
         setMovements(body.movements || []);
@@ -232,7 +257,15 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
     const fetchAccounts = async () => {
       setLoadingAccounts(true);
       try {
-        const res = await fetch(`${API_URL}/api/v1/accounts`, { headers: { Authorization: `Bearer ${token}` } });
+        let authToken = token;
+        let res = await fetch(`${API_URL}/api/v1/accounts`, { headers: { Authorization: `Bearer ${authToken}` } });
+        if (res.status === 401) {
+          const refreshed = await AuthService.refreshSession();
+          if (refreshed) {
+            authToken = refreshed;
+            res = await fetch(`${API_URL}/api/v1/accounts`, { headers: { Authorization: `Bearer ${authToken}` } });
+          }
+        }
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || 'Failed to fetch accounts');
         setAccounts(body.accounts || []);
@@ -243,8 +276,49 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
       }
     };
 
+    const fetchCreditCard = async () => {
+      try {
+        let authToken = token;
+        if (!authToken) return;
+        let res = await fetch(`${API_URL}/api/tarjetas-credito`, {
+          headers: { Authorization: `Bearer ${authToken}` },
+        });
+        if (res.status === 401) {
+          const refreshed = await AuthService.refreshSession();
+          if (refreshed) {
+            authToken = refreshed;
+            res = await fetch(`${API_URL}/api/tarjetas-credito`, {
+              headers: { Authorization: `Bearer ${authToken}` },
+            });
+          }
+        }
+        const body = await res.json();
+        if (!res.ok) return;
+        const card = (body.cards || []).find((c: any) => c.estado === 'aprobada') || null;
+        if (card) {
+          const payload = mergeCreditCardForUi(card);
+          setCreditCardData(payload);
+          try {
+            localStorage.setItem('creditCardData', JSON.stringify(payload));
+          } catch (e) {}
+        } else {
+          setCreditCardData(null);
+          try {
+            localStorage.removeItem('creditCardData');
+          } catch (e) {}
+        }
+      } catch (e) {
+        // keep local cache if API fails
+        try {
+          const cached = localStorage.getItem('creditCardData');
+          if (cached) setCreditCardData(JSON.parse(cached));
+        } catch (_) {}
+      }
+    };
+
     fetchAccounts();
     fetchMovements();
+    fetchCreditCard();
   }, [refreshKey]);
 
   useEffect(() => {
@@ -269,6 +343,54 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
     };
     fetchDetail();
   }, [selectedMovementId]);
+
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const token = AuthService.getAccessToken();
+    if (!token) return;
+
+    const initNotifications = async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const body = await res.json();
+        if (res.ok && body.notifications) {
+          const ids = body.notifications.map((n: any) => n.id);
+          setSeenNotificationIds(ids);
+        }
+      } catch (e) {}
+    };
+    initNotifications();
+  }, []);
+
+  useEffect(() => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    const token = AuthService.getAccessToken();
+    if (!token || seenNotificationIds.length === 0) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`${API_URL}/api/notificaciones`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const body = await res.json();
+        if (res.ok && body.notifications) {
+          const newNotifications = body.notifications.filter(
+            (n: any) => !seenNotificationIds.includes(n.id)
+          );
+          if (newNotifications.length > 0) {
+            const newest = newNotifications[0];
+            setActiveToast({ title: newest.titulo, message: newest.mensaje });
+            setSeenNotificationIds((prev) => [...prev, ...body.notifications.map((n: any) => n.id)]);
+            setTimeout(() => setActiveToast(null), 4000);
+          }
+        }
+      } catch (e) {}
+    }, 6000);
+
+    return () => clearInterval(interval);
+  }, [seenNotificationIds]);
 
   const MENU_CARDS: { id: View; label: string; desc: string; icon: ReactNode; image: string }[] = FEATURES.map((f) => ({
     id: f.id as View,
@@ -319,20 +441,13 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
             )}
           </div>
           
-          <div className="flex items-center gap-3">
+          <div>
             <button
               onClick={() => setShowNotificationsModal(true)}
               aria-label="Notificaciones"
               className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-400 hover:text-black hover:bg-zinc-100 transition-colors cursor-pointer"
             >
               {Icons.bell}
-            </button>
-            <button
-              onClick={() => setShowProfileModal(true)}
-              aria-label="Perfil"
-              className="w-8 h-8 rounded-full flex items-center justify-center bg-black text-white hover:opacity-90 transition-opacity cursor-pointer"
-            >
-              <span className="text-[11px] font-black">JB</span>
             </button>
           </div>
         </header>
@@ -348,7 +463,11 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
                   <h1 className="text-2xl lg:text-3xl font-black tracking-tight text-black mt-0.5">Hola, {user.firstName}</h1>
                 </div>
                 {/* avatar moved to header; keep placeholder for visual balance */}
-                <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-black border border-black/5">
+                <div
+                  onClick={() => setShowProfileModal(true)}
+                  role="button"
+                  className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-xs font-bold text-black border border-black/5 cursor-pointer"
+                >
                   {user.firstName?.[0] ?? 'U'}{user.lastName?.[0] ?? 'B'}
                 </div>
               </div>
@@ -501,7 +620,7 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
           {view === 'tarjetas' && (
             <TarjetasCredito
               onAprobada={(p: any) => {
-                const payload = { producto: p, cupoNumero: p.cupoNumero ?? 0, gastado: 0 };
+                const payload = mergeCreditCardForUi(p);
                 setCreditCardData(payload);
                 try { localStorage.setItem('creditCardData', JSON.stringify(payload)); } catch (e) {}
                 setVirtualInitialTab('credito');
@@ -563,6 +682,36 @@ export default function PersonalDashboard({ user, onLogout }: PersonalDashboardP
               Volver
             </button>
             <ProfileComponent />
+          </div>
+        </div>
+      )}
+
+      {activeToast && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          right: '20px',
+          background: '#1e293b',
+          border: '1px solid rgba(255,255,255,0.1)',
+          color: '#fff',
+          padding: '16px',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+          zIndex: 9999,
+          maxWidth: '320px',
+          animation: 'slideIn 0.3s ease-out',
+        }}>
+          <style>{`
+            @keyframes slideIn {
+              from { transform: translateX(120%); opacity: 0; }
+              to { transform: translateX(0); opacity: 1; }
+            }
+          `}</style>
+          <div style={{ fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            🔔 {activeToast.title}
+          </div>
+          <div style={{ fontSize: '12px', color: '#9ca3af', marginTop: '6px', lineHeight: 1.4 }}>
+            {activeToast.message}
           </div>
         </div>
       )}

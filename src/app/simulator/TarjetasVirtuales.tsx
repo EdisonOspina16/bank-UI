@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { CardFace } from './TarjetasCredito';
+import { AuthService } from '../../services/auth.service';
 
 const Icon = {
   ChevronLeft: ({ size = 20 }: { size?: number }) => (
@@ -83,69 +84,664 @@ function Header({ title, onBack }: { title: string; onBack?: () => void }) {
   );
 }
 
-function useCvvRotativo() {
-  const [cvv, setCvv] = useState(() => String(Math.floor(100 + Math.random() * 900)));
-  const [segundos, setSegundos] = useState(45);
+const ICONOS_BOLSILLO = [
+  { id: 'compras', label: 'Compras', Icon: Icon.ShoppingBag },
+  { id: 'suscripciones', label: 'Suscripciones', Icon: Icon.Repeat },
+  { id: 'viajes', label: 'Viajes', Icon: Icon.Plane },
+  { id: 'otro', label: 'Otro', Icon: Icon.Wallet },
+];
 
-  useEffect(() => {
-    const t = setInterval(() => {
-      setSegundos((prev) => {
-        if (prev <= 1) {
-          setCvv(String(Math.floor(100 + Math.random() * 900)));
-          return 45;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(t);
-  }, []);
-
-  return { cvv, segundos };
+function iconoDe(id: string) {
+  return ICONOS_BOLSILLO.find((i) => i.id === id)?.Icon || Icon.Wallet;
 }
 
-function LightCard({ label, badge, numero, vence }: { label: string; badge: string; numero: string; vence: string }) {
+function PocketCard({ pocket, onClick }: { pocket: any; onClick: () => void }) {
+  const IconComp = iconoDe(pocket.icono);
+  const remaining = Math.max(0, pocket.limite - pocket.saldoUsado);
   return (
-    <div style={s.lightCard}>
-      <div style={s.lightCardTop}>
-        <div>
-          <div style={s.lightCardLabel}>{label}</div>
-          <div style={s.lightCardBrand}>
-            <div style={s.lightCardBadge}>JB</div>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>Jes Bank</span>
-          </div>
-        </div>
-        <span style={s.pill}>{badge}</span>
+    <div onClick={onClick} style={{ ...s.pocketCard, cursor: 'pointer' }}>
+      <div style={s.pocketIconWrap}>
+        <IconComp size={16} />
       </div>
+      <div style={s.pocketName}>{pocket.nombre}</div>
+      <div style={s.pocketLimit}>{money(remaining)}</div>
+      <div style={s.pocketNote}>Creado del saldo principal</div>
+    </div>
+  );
+}
 
-      <div style={s.lightCardNumber}>{numero}</div>
+function CreatePocketModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p: { nombre: string; limite: number; icono: string }) => void }) {
+  const [nombre, setNombre] = useState('');
+  const [limite, setLimite] = useState('');
+  const [iconId, setIconId] = useState('compras');
+  const listo = nombre.trim().length > 0 && limite.trim().length > 0;
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-        <div>
-          <div style={s.microLabel}>TITULAR</div>
-          <div style={s.holder}>SARA QUINTERO</div>
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={s.sectionLabel}>Nuevo bolsillo</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Icon.X />
+          </button>
         </div>
-        <div style={{ display: 'flex', gap: 22 }}>
-          <div>
-            <div style={s.microLabel}>VENCE</div>
-            <div style={s.holder}>{vence}</div>
-          </div>
-          <div>
-            <div style={s.microLabel}>CVV</div>
-            <div style={s.holder}>•••</div>
-          </div>
+
+        <label style={s.fieldLabel}>Nombre del bolsillo</label>
+        <input style={s.input} placeholder="Streaming, mercado, viajes…" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+
+        <label style={s.fieldLabel}>Monto de dinero a transferir</label>
+        <input style={s.input} placeholder="$ 200.000" value={limite} onChange={(e) => setLimite(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
+
+        <label style={s.fieldLabel}>Categoría</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, marginTop: 8 }}>
+          {ICONOS_BOLSILLO.map(({ id, label, Icon }) => (
+            <button key={id} onClick={() => setIconId(id)} style={{ ...s.iconChoice, ...(iconId === id ? s.iconChoiceActive : {}) }} aria-label={label}>
+              <Icon size={16} color={iconId === id ? '#fff' : '#111'} />
+            </button>
+          ))}
         </div>
+
+        <div style={s.disclaimer}>Este monto se descontará directamente del saldo disponible en tu tarjeta de débito principal.</div>
+
+        <button
+          style={{ ...s.primaryBtn, marginTop: 14, opacity: listo ? 1 : 0.4 }}
+          disabled={!listo}
+          onClick={() => {
+            onCreate({ nombre: nombre.trim(), limite: Number(limite), icono: iconId });
+            onClose();
+          }}
+        >
+          Crear bolsillo
+        </button>
       </div>
     </div>
   );
 }
 
-function Credenciales({ titulo, numero, vence, cvv, segundos }: { titulo: string; numero: string; vence: string; cvv: string; segundos: number }) {
+function EditPocketModal({ pocket, onClose, onUpdate, onDelete }: { pocket: any; onClose: () => void; onUpdate: (p: { nombre: string; limite: number; icono: string }) => void; onDelete: () => void }) {
+  const [nombre, setNombre] = useState(pocket.nombre);
+  const [limite, setLimite] = useState(String(pocket.limite));
+  const [iconId, setIconId] = useState(pocket.icono || 'otro');
+  const listo = nombre.trim().length > 0 && limite.trim().length > 0;
+
+  return (
+    <div style={s.modalOverlay} onClick={onClose}>
+      <div style={s.modalCard} onClick={(e) => e.stopPropagation()}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <div style={s.sectionLabel}>Editar bolsillo</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+            <Icon.X />
+          </button>
+        </div>
+
+        <label style={s.fieldLabel}>Nombre del bolsillo</label>
+        <input style={s.input} value={nombre} onChange={(e) => setNombre(e.target.value)} />
+
+        <label style={s.fieldLabel}>Saldo del bolsillo (Límite)</label>
+        <input style={s.input} value={limite} onChange={(e) => setLimite(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
+
+        <label style={s.fieldLabel}>Categoría</label>
+        <div style={{ display: 'flex', gap: 8, marginBottom: 12, marginTop: 8 }}>
+          {ICONOS_BOLSILLO.map(({ id, label, Icon }) => (
+            <button key={id} onClick={() => setIconId(id)} style={{ ...s.iconChoice, ...(iconId === id ? s.iconChoiceActive : {}) }} aria-label={label}>
+              <Icon size={16} color={iconId === id ? '#fff' : '#111'} />
+            </button>
+          ))}
+        </div>
+
+        <div style={s.disclaimer}>El aumento o disminución del saldo ajustará el dinero disponible en tu cuenta principal de débito.</div>
+
+        <button
+          style={{ ...s.primaryBtn, marginTop: 14, opacity: listo ? 1 : 0.4 }}
+          disabled={!listo}
+          onClick={() => {
+            onUpdate({ nombre: nombre.trim(), limite: Number(limite), icono: iconId });
+            onClose();
+          }}
+        >
+          Guardar cambios
+        </button>
+
+        <button
+          style={{ ...s.primaryBtn, marginTop: 8, background: '#dc2626' }}
+          onClick={() => {
+            if (confirm(`¿Estás seguro de eliminar el bolsillo "${pocket.nombre}"? Los fondos restantes volverán a tu saldo principal.`)) {
+              onDelete();
+              onClose();
+            }
+          }}
+        >
+          Eliminar bolsillo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function SolicitarCreditoBanner({ onSolicitarCredito }: { onSolicitarCredito?: () => void }) {
+  return (
+    <div style={s.banner}>
+      <div style={s.bannerIcon}>
+        <Icon.Wallet size={18} color="#fff" />
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={s.bannerTitle}>Aún no tienes tarjeta de crédito</div>
+        <div style={s.bannerSub}>Solicítala y actívala en minutos, sin papeleo.</div>
+      </div>
+      <button style={s.bannerBtn} onClick={onSolicitarCredito}>
+        Solicitar <Icon.ArrowRight size={14} />
+      </button>
+    </div>
+  );
+}
+
+export default function TarjetasVirtuales({
+  creditCard = null,
+  initialTab = 'debito',
+  onSolicitarCredito,
+  onBackToHome,
+  onUpdateCreditCard,
+}: {
+  creditCard?: any | null;
+  initialTab?: 'debito' | 'credito';
+  onSolicitarCredito?: () => void;
+  onBackToHome?: () => void;
+  onUpdateCreditCard?: (c: any) => void;
+}) {
+  const [tab, setTab] = useState<'debito' | 'credito'>(initialTab);
+  
+  // Debit card state loaded from backend
+  const [debitCard, setDebitCard] = useState<any | null>(null);
+  const [cvv, setCvv] = useState('');
+  const [segundos, setSegundos] = useState(45);
+  
+  const [showCreatePocket, setShowCreatePocket] = useState(false);
+  const [selectedPocket, setSelectedPocket] = useState<any | null>(null);
+
+  // Credit Card Simulated Transactions
+  const [txAmount, setTxAmount] = useState('');
+  const [txTarget, setTxTarget] = useState<'principal' | string>('principal'); // 'principal' or pocketId
+  const [txCardType, setTxCardType] = useState<'debito' | 'credito'>('debito');
+
+  const [loading, setLoading] = useState(true);
+
+  const fetchDebitCardData = async () => {
+    let token = AuthService.getAccessToken();
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    try {
+      let res = await fetch(`${API_URL}/api/tarjeta-debito`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.status === 401) {
+        const refreshed = await AuthService.refreshSession();
+        if (refreshed) {
+          token = refreshed;
+          res = await fetch(`${API_URL}/api/tarjeta-debito`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+      }
+      const body = await res.json();
+      if (res.ok && body.card) {
+        setDebitCard(body.card);
+        setCvv(body.card.cvv);
+      } else {
+        console.error('Error fetching debit card details:', body.error || res.statusText);
+      }
+    } catch (e) {
+      console.error('Error fetching debit card details:', e);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCvv = async () => {
+    const token = AuthService.getAccessToken();
+    if (!token) return;
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/tarjeta-debito/cvv`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const body = await res.json();
+      if (res.ok && body.cvv) {
+        setCvv(body.cvv);
+        setSegundos(body.secondsLeft || 45);
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
+
+  useEffect(() => {
+    fetchDebitCardData();
+  }, []);
+
+  // CVV Rotate timer
+  useEffect(() => {
+    fetchCvv();
+    const interval = setInterval(() => {
+      setSegundos((prev) => {
+        if (prev <= 1) {
+          fetchCvv();
+          return 45;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Pocket CRUD Actions
+  const handleCreatePocket = async (payload: { nombre: string; limite: number; icono: string }) => {
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/tarjeta-debito/bolsillos`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to create pocket');
+      fetchDebitCardData();
+    } catch (e: any) {
+      alert(e.message || 'Error al crear bolsillo');
+    }
+  };
+
+  const handleUpdatePocket = async (payload: { nombre: string; limite: number; icono: string }) => {
+    if (!selectedPocket) return;
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/tarjeta-debito/bolsillos/${selectedPocket.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to update pocket');
+      fetchDebitCardData();
+      setSelectedPocket(null);
+    } catch (e: any) {
+      alert(e.message || 'Error al actualizar bolsillo');
+    }
+  };
+
+  const handleDeletePocket = async () => {
+    if (!selectedPocket) return;
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+    try {
+      const res = await fetch(`${API_URL}/api/tarjeta-debito/bolsillos/${selectedPocket.id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to delete pocket');
+      fetchDebitCardData();
+      setSelectedPocket(null);
+    } catch (e: any) {
+      alert(e.message || 'Error al eliminar bolsillo');
+    }
+  };
+
+  // Debit Transaction Simulation
+  const handleDebitTransactionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amt = Number(txAmount.replace(/\D/g, '')) || 0;
+    if (amt <= 0) return;
+
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    try {
+      const payload = {
+        amount: amt,
+        bolsilloId: txTarget === 'principal' ? undefined : txTarget,
+        tipo: 'compra', // Default to payment purchase
+      };
+
+      const res = await fetch(`${API_URL}/api/tarjeta-debito/transaccion`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Transaction failed');
+
+      alert(`Compra exitosa por ${money(amt)}.`);
+      fetchDebitCardData();
+      setTxAmount('');
+    } catch (e: any) {
+      alert(e.message || 'Error al procesar transacción');
+    }
+  };
+
+  // Credit Card simulated transaction (Registers a Gasto)
+  const handleCreditTransactionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!creditCard) return;
+
+    const amt = Number(txAmount.replace(/\D/g, '')) || 0;
+    if (amt <= 0) return;
+
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    try {
+      const res = await fetch(`${API_URL}/api/tarjetas-credito/${creditCard.id}/gasto`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount: amt }),
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to record expense');
+
+      alert(`Gasto registrado por ${money(amt)} con éxito.`);
+      setTxAmount('');
+
+      // Notify parent to refresh state
+      if (onUpdateCreditCard) {
+        const mergedProduct = {
+          ...creditCard,
+          gastado: body.tarjeta.gastado,
+        };
+        onUpdateCreditCard(mergedProduct);
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error al registrar el gasto');
+    }
+  };
+
+  // Cancel Credit Card
+  const handleCancelCreditCard = async () => {
+    if (!creditCard) return;
+    if (!confirm('¿Estás seguro de que deseas cancelar de forma permanente tu tarjeta de crédito? Esta acción no se puede deshacer.')) return;
+
+    const token = AuthService.getAccessToken();
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    try {
+      const res = await fetch(`${API_URL}/api/tarjetas-credito/${creditCard.id}/cancelar`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || 'Failed to cancel card');
+
+      alert('Tarjeta de crédito cancelada con éxito.');
+
+      // Update parent component state
+      if (onUpdateCreditCard) {
+        onUpdateCreditCard(null);
+      }
+    } catch (e: any) {
+      alert(e.message || 'Error al cancelar la tarjeta');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div style={{ ...s.frame, display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 700 }}>
+        <p>Cargando tarjetas...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={s.frame}>
+      <Header title="TARJETAS VIRTUALES" onBack={onBackToHome} />
+      <div style={s.body}>
+        <div style={s.h1}>Tarjetas virtuales</div>
+        <div style={s.sub}>
+          {tab === 'debito' ? 'Seguridad mejorada para tus transacciones por internet' : 'Tu tarjeta de crédito, siempre a la mano'}
+        </div>
+
+        <div style={s.tabs}>
+          <button onClick={() => setTab('debito')} style={{ ...s.tabBtn, ...(tab === 'debito' ? s.tabBtnActive : {}) }}>
+            Débito
+          </button>
+          <button onClick={() => setTab('credito')} style={{ ...s.tabBtn, ...(tab === 'credito' ? s.tabBtnActive : {}) }}>
+            Crédito
+          </button>
+        </div>
+
+        {tab === 'debito' && !debitCard && (
+          <div style={s.sectionCard}>
+            <p style={{ margin: 0, color: '#64748b', fontSize: 14 }}>
+              No se pudo cargar tu tarjeta de débito. Cierra sesión, vuelve a entrar e inténtalo de nuevo.
+            </p>
+            <button style={{ ...s.primaryBtn, marginTop: 12 }} onClick={() => { setLoading(true); fetchDebitCardData(); }}>
+              Reintentar
+            </button>
+          </div>
+        )}
+
+        {tab === 'debito' && debitCard && (
+          <>
+            <div style={s.sectionCard}>
+              <LightCard
+                label="TARJETA DE DÉBITO"
+                badge="DÉBITO"
+                numero={debitCard.numero}
+                vence={debitCard.vence}
+                titular={debitCard.titular}
+              />
+            </div>
+
+            <Credenciales
+              titulo="Credenciales de débito"
+              numero={debitCard.numero}
+              vence={debitCard.vence}
+              cvv={cvv}
+              segundos={segundos}
+            />
+
+            <div style={s.sectionCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={s.sectionLabel}>Saldo principal</span>
+                <span style={{ fontSize: 18, fontWeight: 800 }}>{money(debitCard.saldo)}</span>
+              </div>
+            </div>
+
+            <div style={s.sectionCard}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                <span style={s.sectionLabel}>Bolsillos</span>
+                <button
+                  onClick={() => setShowCreatePocket(true)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#7c3aed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 12,
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Icon.Plus size={14} /> Crear nuevo
+                </button>
+              </div>
+
+              <div style={s.pocketRow}>
+                {debitCard.bolsillos.length === 0 ? (
+                  <div style={{ color: '#8a8a8a', fontSize: 12, padding: '10px 0' }}>No tienes bolsillos creados.</div>
+                ) : (
+                  debitCard.bolsillos.map((p: any) => (
+                    <PocketCard key={p.id} pocket={p} onClick={() => setSelectedPocket(p)} />
+                  ))
+                )}
+              </div>
+            </div>
+
+            <div style={s.sectionCard}>
+              <div style={s.sectionLabel}>Simular gasto (Débito)</div>
+              <form onSubmit={handleDebitTransactionSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <input
+                    value={txAmount}
+                    onChange={(e) => setTxAmount(e.target.value.replace(/\D/g, ''))}
+                    placeholder="Monto $ 50.000"
+                    style={{ ...s.input, flex: 1 }}
+                  />
+                  <select
+                    value={txTarget}
+                    onChange={(e) => setTxTarget(e.target.value)}
+                    style={{ ...s.input, width: 140, background: '#fff', border: '1px solid #EFEFEC', height: 41, padding: '0 8px', borderRadius: 12 }}
+                  >
+                    <option value="principal">Cuenta Principal</option>
+                    {debitCard.bolsillos.map((b: any) => (
+                      <option key={b.id} value={b.id}>
+                        Bolsillo: {b.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button type="submit" style={s.primaryBtn}>
+                  Realizar pago simulado
+                </button>
+              </form>
+            </div>
+          </>
+        )}
+
+        {tab === 'credito' && (
+          <>
+            {creditCard ? (
+              <>
+                <div style={{ marginBottom: 20 }}>
+                  <CardFace producto={creditCard} />
+                </div>
+
+                <div style={s.sectionCard}>
+                  <div style={s.sectionLabel}>Cupo de la tarjeta</div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                    <div style={{ color: '#6b6b6b' }}>Cupo total</div>
+                    <div style={{ fontWeight: 800, fontSize: 16 }}>{money(creditCard.cupoAsignado)}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                    <div style={{ color: '#6b6b6b' }}>Gastado</div>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: '#dc2626' }}>{money(creditCard.gastado || 0)}</div>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+                    <div style={{ color: '#6b6b6b' }}>Disponible</div>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: '#10b981' }}>
+                      {money(Math.max(0, creditCard.cupoAsignado - (creditCard.gastado || 0)))}
+                    </div>
+                  </div>
+
+                  {/* Cupo progress bar */}
+                  <div style={{ marginTop: 15 }}>
+                    <div style={s.progressTrack}>
+                      <div
+                        style={{
+                          ...s.progressFill,
+                          width: `${Math.min(100, Math.round(((creditCard.gastado || 0) / creditCard.cupoAsignado) * 100))}%`,
+                          background: (creditCard.gastado || 0) / creditCard.cupoAsignado > 0.85 ? '#dc2626' : '#111',
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div style={s.sectionCard}>
+                  <div style={s.sectionLabel}>Registrar gasto (Crédito)</div>
+                  <form onSubmit={handleCreditTransactionSubmit} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      value={txAmount}
+                      onChange={(e) => setTxAmount(e.target.value.replace(/\D/g, ''))}
+                      placeholder="$ 50.000"
+                      style={{ ...s.input, flex: 1 }}
+                    />
+                    <button type="submit" style={{ ...s.primaryBtn, padding: '10px 14px', width: 120, marginTop: 0 }}>
+                      Registrar
+                    </button>
+                  </form>
+                </div>
+
+                <button
+                  onClick={handleCancelCreditCard}
+                  style={{ ...s.primaryBtn, background: '#dc2626', color: '#fff', marginBottom: 20 }}
+                >
+                  Cancelar tarjeta de crédito
+                </button>
+              </>
+            ) : (
+              <div style={s.sectionCard}>
+                <SolicitarCreditoBanner onSolicitarCredito={onSolicitarCredito} />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {showCreatePocket && (
+        <CreatePocketModal onClose={() => setShowCreatePocket(false)} onCreate={handleCreatePocket} />
+      )}
+
+      {selectedPocket && (
+        <EditPocketModal
+          pocket={selectedPocket}
+          onClose={() => setSelectedPocket(null)}
+          onUpdate={handleUpdatePocket}
+          onDelete={handleDeletePocket}
+        />
+      )}
+    </div>
+  );
+}
+
+function Credenciales({
+  titulo,
+  numero,
+  vence,
+  cvv,
+  segundos,
+}: {
+  titulo: string;
+  numero: string;
+  vence: string;
+  cvv: string;
+  segundos: number;
+}) {
   const [copiadoKey, setCopiadoKey] = useState<string | null>(null);
 
   const copiar = (key: string, valor: string) => {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) navigator.clipboard.writeText(valor).catch(() => {});
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(valor).catch(() => {});
+    }
     setCopiadoKey(key);
-    setTimeout(() => setCopiadoKey((k) => (k === key ? null : k)), 1200);
+    setTimeout(() => setCopiadoKey(null), 1200);
   };
 
   const filas = [
@@ -177,249 +773,49 @@ function Credenciales({ titulo, numero, vence, cvv, segundos }: { titulo: string
   );
 }
 
-const ICONOS_BOLSILLO = [
-  { id: 'compras', label: 'Compras', Icon: Icon.ShoppingBag },
-  { id: 'suscripciones', label: 'Suscripciones', Icon: Icon.Repeat },
-  { id: 'viajes', label: 'Viajes', Icon: Icon.Plane },
-  { id: 'otro', label: 'Otro', Icon: Icon.Wallet },
-];
-
-function iconoDe(id: string) {
-  return ICONOS_BOLSILLO.find((i) => i.id === id)?.Icon || Icon.Wallet;
-}
-function numeroBolsillo(id: string) {
-  let h = 0;
-  for (const c of id) h = (h * 31 + c.charCodeAt(0)) % 9000;
-  return String(1000 + h);
-}
-
-function PocketCard({ pocket }: { pocket: any }) {
-  const IconComp = iconoDe(pocket.iconId);
+function LightCard({
+  label,
+  badge,
+  numero,
+  vence,
+  titular,
+}: {
+  label: string;
+  badge: string;
+  numero: string;
+  vence: string;
+  titular?: string;
+}) {
   return (
-    <div style={s.pocketCard}>
-      <div style={s.pocketIconWrap}>
-        <IconComp size={16} />
-      </div>
-      <div style={s.pocketName}>{pocket.nombre}</div>
-      <div style={s.pocketNumber}>•••• {numeroBolsillo(pocket.id)}</div>
-      <div style={s.pocketLimit}>{pocket.limite ? money(pocket.limite) : 'Sin límite'}</div>
-      <div style={s.pocketNote}>Se descuenta de tu tarjeta principal</div>
-    </div>
-  );
-}
-
-function CreatePocketModal({ onClose, onCreate }: { onClose: () => void; onCreate: (p: any) => void }) {
-  const [nombre, setNombre] = useState('');
-  const [limite, setLimite] = useState('');
-  const [iconId, setIconId] = useState('compras');
-  const listo = nombre.trim().length > 0;
-
-  return (
-    <div style={s.modalOverlay} onClick={onClose}>
-      <div style={s.modalCard} onClick={(e) => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div style={s.sectionLabel}>Nuevo bolsillo</div>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
-            <Icon.X />
-          </button>
+    <div style={s.lightCard}>
+      <div style={s.lightCardTop}>
+        <div>
+          <div style={s.lightCardLabel}>{label}</div>
+          <div style={s.lightCardBrand}>
+            <div style={s.lightCardBadge}>JB</div>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>Jes Bank</span>
+          </div>
         </div>
+        <span style={s.pill}>{badge}</span>
+      </div>
 
-        <label style={s.fieldLabel}>Nombre del bolsillo</label>
-        <input style={s.input} placeholder="Streaming, mercado, viajes…" value={nombre} onChange={(e) => setNombre(e.target.value)} />
+      <div style={s.lightCardNumber}>{numero}</div>
 
-        <label style={s.fieldLabel}>Límite mensual (opcional)</label>
-        <input style={s.input} placeholder="$ 200.000" value={limite} onChange={(e) => setLimite(e.target.value.replace(/\D/g, ''))} inputMode="numeric" />
-
-        <label style={s.fieldLabel}>Categoría</label>
-        <div style={{ display: 'flex', gap: 8, marginBottom: 6 }}>
-          {ICONOS_BOLSILLO.map(({ id, label, Icon }) => (
-            <button key={id} onClick={() => setIconId(id)} style={{ ...s.iconChoice, ...(iconId === id ? s.iconChoiceActive : {}) }} aria-label={label}>
-              <Icon size={16} />
-            </button>
-          ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+        <div>
+          <div style={s.microLabel}>TITULAR</div>
+          <div style={s.holder}>{titular || '—'}</div>
         </div>
-
-        <div style={s.disclaimer}>El saldo de este bolsillo no es independiente: cada compra se descuenta directamente del cupo de tu tarjeta principal.</div>
-
-        <button
-          style={{ ...s.primaryBtn, marginTop: 14, opacity: listo ? 1 : 0.4 }}
-          disabled={!listo}
-          onClick={() => {
-            onCreate({ id: `${Date.now()}`, nombre: nombre.trim(), limite: limite ? Number(limite) : null, iconId });
-            onClose();
-          }}
-        >
-          Crear bolsillo
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function Bolsillos({ pockets, onCreate }: { pockets: any[]; onCreate: (p: any) => void }) {
-  const [abierto, setAbierto] = useState(false);
-  return (
-    <div style={s.sectionCard}>
-      <div style={s.sectionLabel}>Bolsillos</div>
-      <div style={{ ...s.uploadHint, marginBottom: 12 }}>
-        Crea sub-tarjetas para gastos específicos. Todo se descuenta de tu tarjeta principal.
-      </div>
-      <div style={s.pocketRow}>
-        {pockets.map((p) => (
-          <PocketCard key={p.id} pocket={p} />
-        ))}
-        <button style={s.pocketAddCard} onClick={() => setAbierto(true)}>
-          <Icon.Plus size={18} />
-          <span style={{ fontSize: 11, color: '#8a8a8a', marginTop: 6 }}>Nuevo bolsillo</span>
-        </button>
-      </div>
-      {abierto && <CreatePocketModal onClose={() => setAbierto(false)} onCreate={onCreate} />}
-    </div>
-  );
-}
-
-function SolicitarCreditoBanner({ onSolicitarCredito }: { onSolicitarCredito?: () => void }) {
-  return (
-    <div style={s.banner}>
-      <div style={s.bannerIcon}>
-        <Icon.Wallet size={18} color="#fff" />
-      </div>
-      <div style={{ flex: 1 }}>
-        <div style={s.bannerTitle}>Aún no tienes tarjeta de crédito</div>
-        <div style={s.bannerSub}>Solicítala y actívala en minutos, sin papeleo.</div>
-      </div>
-      <button style={s.bannerBtn} onClick={onSolicitarCredito}>
-        Solicitar <Icon.ArrowRight size={14} />
-      </button>
-    </div>
-  );
-}
-
-function TabDebito() {
-  const numero = '4821 7381 2940 1827';
-  const vence = '09/29';
-  const { cvv, segundos } = useCvvRotativo();
-  const [pockets, setPockets] = useState([{ id: 'seed-1', nombre: 'Streaming', limite: 80000, iconId: 'suscripciones' }]);
-
-  return (
-    <>
-      <div style={s.sectionCard}>
-        <LightCard label="TARJETA DE DÉBITO" badge="DÉBITO" numero={numero} vence={vence} />
-      </div>
-      <Credenciales titulo="Credenciales de débito" numero={numero} vence={vence} cvv={cvv} segundos={segundos} />
-      <Bolsillos pockets={pockets} onCreate={(p) => setPockets((prev) => [...prev, p])} />
-    </>
-  );
-}
-
-function TabCredito({ creditCard, onSolicitarCredito }: { creditCard: any | null; onSolicitarCredito?: () => void }) {
-  const numero = '5312 4470 8821 ' + (creditCard ? '3902' : '0000');
-  const vence = '12/28';
-
-  if (!creditCard) {
-    return (
-      <div style={s.sectionCard}>
-        <SolicitarCreditoBanner onSolicitarCredito={onSolicitarCredito} />
-      </div>
-    );
-  }
-
-  const { producto, cupoNumero, gastado } = creditCard;
-  const disponible = Math.max(cupoNumero - gastado, 0);
-  const pct = Math.min(100, Math.round((gastado / cupoNumero) * 100));
-
-  return (
-    <>
-      <div style={{ marginBottom: 20 }}>
-        <CardFace producto={producto} />
-      </div>
-
-      <div style={s.sectionCard}>
-        <div style={s.sectionLabel}>Cupo de la tarjeta</div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <div style={{ color: '#6b6b6b' }}>Cupo total</div>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{money(cupoNumero)}</div>
+        <div style={{ display: 'flex', gap: 22 }}>
+          <div>
+            <div style={s.microLabel}>VENCE</div>
+            <div style={s.holder}>{vence}</div>
+          </div>
+          <div>
+            <div style={s.microLabel}>CVV</div>
+            <div style={s.holder}>•••</div>
+          </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
-          <div style={{ color: '#6b6b6b' }}>Disponible</div>
-          <div style={{ fontWeight: 800, fontSize: 16 }}>{money(Math.max(cupoNumero - (creditCard.gastado||0), 0))}</div>
-        </div>
-        <div style={{ marginTop: 10, color: '#9ca3af', fontSize: 12 }}>Se muestra solo el cupo y disponible. El detalle de consumo no está disponible en esta vista.</div>
-      </div>
-    </>
-  );
-}
-
-export default function TarjetasVirtuales({ creditCard = null, initialTab = 'debito', onSolicitarCredito, onBackToHome, onUpdateCreditCard }: { creditCard?: any | null; initialTab?: 'debito' | 'credito'; onSolicitarCredito?: () => void; onBackToHome?: () => void; onUpdateCreditCard?: (c: any) => void }) {
-  const [tab, setTab] = useState<'debito' | 'credito'>(initialTab);
-  const [localCard, setLocalCard] = useState<any | null>(creditCard);
-  const [txAmount, setTxAmount] = useState('');
-  const [txDesc, setTxDesc] = useState('');
-
-  useEffect(() => {
-    setTab(initialTab);
-  }, [initialTab]);
-
-  useEffect(() => {
-    setLocalCard(creditCard);
-  }, [creditCard]);
-
-  // simulate a purchase on credit card
-  const simulatePurchase = (amount: number) => {
-    if (!localCard) return;
-    const newGastado = Math.min(localCard.cupoNumero, (localCard.gastado || 0) + amount);
-    const updated = { ...localCard, gastado: newGastado };
-    setLocalCard(updated);
-    if (onUpdateCreditCard) onUpdateCreditCard(updated);
-  };
-
-  const handleSubmitTx = (e: React.FormEvent) => {
-    e.preventDefault();
-    const amt = Number(txAmount.replace(/\D/g, '')) || 0;
-    if (amt <= 0) return;
-    simulatePurchase(amt);
-    setTxAmount('');
-    setTxDesc('');
-  };
-
-  return (
-    <div style={s.frame}>
-      <Header title="TARJETAS VIRTUALES" onBack={onBackToHome} />
-      <div style={s.body}>
-        <div style={s.h1}>Tarjetas virtuales</div>
-        <div style={s.sub}>
-          {tab === 'debito' ? 'Seguridad mejorada para tus transacciones por internet' : 'Tu tarjeta de crédito, siempre a la mano'}
-        </div>
-
-        <div style={s.tabs}>
-          <button onClick={() => setTab('debito')} style={{ ...s.tabBtn, ...(tab === 'debito' ? s.tabBtnActive : {}) }}>
-            Débito
-          </button>
-          <button onClick={() => setTab('credito')} style={{ ...s.tabBtn, ...(tab === 'credito' ? s.tabBtnActive : {}) }}>
-            Crédito
-          </button>
-        </div>
-
-        {tab === 'debito' && <TabDebito />}
-        {tab === 'credito' && <>
-          <TabCredito creditCard={localCard} onSolicitarCredito={onSolicitarCredito} />
-
-          {/* Simulación de gasto: formulario simple (solo disponible si NO hay tarjeta de crédito activa) */}
-          {!localCard && (
-            <div style={{ ...s.sectionCard }}>
-              <div style={s.sectionLabel}>Simular compra</div>
-              <form onSubmit={handleSubmitTx} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <input value={txAmount} onChange={(e) => setTxAmount(e.target.value)} placeholder="$ 50.000" style={{ ...s.input, flex: 1 }} />
-                <button type="submit" style={{ ...s.primaryBtn, padding: '10px 14px', width: 140 }}>
-                  Hacer compra
-                </button>
-              </form>
-              <div style={{ marginTop: 12, color: '#6a6a6a', fontSize: 13 }}>
-                Si tienes tarjeta de crédito aprobada, el simulador no estará disponible aquí. Cuando tu tarjeta aparece en "Tarjetas virtuales", solo se muestra el cupo y consumo.
-              </div>
-            </div>
-          )}
-        </>}
       </div>
     </div>
   );
@@ -499,7 +895,7 @@ const s: Record<string, any> = {
   modalOverlay: { position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20, zIndex: 50 },
   modalCard: { background: '#fff', borderRadius: 20, padding: 20, maxWidth: 360, maxHeight: '80vh', overflowY: 'auto' },
 
-  banner: { display: 'flex', alignItems: 'center', gap: 12, background: '#F7F7F5', borderRadius: 14, padding: 14 },
+  banner: { display: 'flex', alignItems: 'center', gap: 12, background: '#F7F7F5', borderRadius: 14, padding: 14, width: '100%', boxSizing: 'border-box' },
   bannerIcon: { width: 34, height: 34, borderRadius: 10, background: '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   bannerTitle: { fontSize: 13, fontWeight: 700, color: '#111' },
   bannerSub: { fontSize: 11, color: '#8a8a8a', marginTop: 2 },
@@ -507,5 +903,4 @@ const s: Record<string, any> = {
 
   progressTrack: { width: '100%', height: 8, background: '#F0F0EE', borderRadius: 999, overflow: 'hidden' },
   progressFill: { height: '100%', background: '#111', borderRadius: 999 },
-  rangeEnd: { fontSize: 10, color: '#adadad' },
 };

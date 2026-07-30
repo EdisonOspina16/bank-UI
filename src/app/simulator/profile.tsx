@@ -197,9 +197,6 @@ export default function ProfilePageSimulator() {
       `}</style>
 
       <div style={s.header}>
-        <button aria-label="Volver" onClick={() => router.back()} style={s.headerBtn}>
-          <Icon.ChevronLeft />
-        </button>
         <div style={s.headerTitle}>MI PERFIL</div>
         <button aria-label="Notificaciones" style={s.headerBtn} onClick={() => router.push('/simulator/notifications')}>
           <Icon.Bell />

@@ -505,16 +505,58 @@ function PrestamosInnerView() {
   const [months, setMonths] = useState(24);
   const [showAmortization, setShowAmortization] = useState(false);
   const [success, setSuccess] = useState(false);
+  
 
   const interestRate = 0.015;
   const monthlyPayment = (amount * interestRate * Math.pow(1 + interestRate, months)) / (Math.pow(1 + interestRate, months) - 1);
   const totalRepayment = monthlyPayment * months;
   const totalInterest = totalRepayment - amount;
+  const [error, setError] = useState('');
+  const [isRequesting, setIsRequesting] = useState(false);
 
-  const handleRequest = () => {
+  const handleRequest = async () => {
+  const token = AuthService.getAccessToken();
+
+  if (!token) {
+    setError('Tu sesión ha expirado. Inicia sesión nuevamente.');
+    return;
+  }
+
+  setSuccess(false);
+  setError('');
+  setIsRequesting(true);
+
+  try {
+    const API_URL =
+      process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
+    const response = await fetch(`${API_URL}/api/v1/loans`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        amount,
+        termMonths: months,
+        idempotencyKey: crypto.randomUUID(),
+      }),
+    });
+
+    const body = await response.json();
+
+    if (!response.ok) {
+      throw new Error(body.error || 'No fue posible realizar el desembolso.');
+    }
+
     setSuccess(true);
     setTimeout(() => setSuccess(false), 5000);
-  };
+  } catch (err: any) {
+    setError(err.message || 'No fue posible realizar el desembolso.');
+  } finally {
+    setIsRequesting(false);
+  }
+};
 
   return (
     <div className="space-y-6 text-black">
@@ -528,6 +570,11 @@ function PrestamosInnerView() {
       {success && (
         <div className="p-4 bg-green-50 border border-green-200 text-green-800 rounded-2xl text-xs font-bold flex items-center gap-2">
           <span>✓</span> Desembolso aprobado de inmediato en tu cuenta.
+        </div>
+      )}
+      {error && (
+        <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-2xl text-xs font-bold flex items-center gap-2">
+          <span>✕</span> {error}
         </div>
       )}
 

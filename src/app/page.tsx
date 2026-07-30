@@ -293,6 +293,8 @@ function PhoneSection() {
 }
 
 function FeatureList() {
+  const router = useRouter();
+
   return (
     <section id="productos" className="py-24 px-6 bg-black text-white relative overflow-hidden">
       <div className="absolute inset-0 opacity-40 pointer-events-none" style={{
@@ -307,25 +309,51 @@ function FeatureList() {
         </Reveal>
 
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-5">
-          {LANDING_FEATURES.map((f, i) => (
-            <Reveal key={f.id} delay={i * 70}>
-              <article className="feature-tile overflow-hidden rounded-[1.75rem] bg-zinc-950 border border-white/8 flex flex-col h-full group">
-                <div className="h-44 overflow-hidden bg-zinc-900 relative">
-                  <img
-                    src={f.image}
-                    alt={f.shortTitle}
-                    className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
-                </div>
-                <div className="p-5 flex-1 flex flex-col">
-                  <h3 className="text-sm font-extrabold leading-snug text-white tracking-wide">{f.title}</h3>
-                  <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">{f.desc}</p>
-                </div>
-              </article>
-            </Reveal>
-          ))}
+          {LANDING_FEATURES.map((f, i) => {
+            const href = f.id === 'prestamos' ? '/info-prestamos' : undefined;
+
+            return (
+              <Reveal key={f.id} delay={i * 70}>
+                <article
+                  onClick={href ? () => router.push(href) : undefined}
+                  role={href ? 'button' : undefined}
+                  tabIndex={href ? 0 : undefined}
+                  onKeyDown={
+                    href
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') router.push(href);
+                        }
+                      : undefined
+                  }
+                  className={`feature-tile overflow-hidden rounded-[1.75rem] bg-zinc-950 border border-white/8 flex flex-col h-full group ${
+                    href ? 'cursor-pointer focus:outline-none focus:ring-2 focus:ring-white/40' : ''
+                  }`}
+                >
+                  <div className="h-44 overflow-hidden bg-zinc-900 relative">
+                    <img
+                      src={f.image}
+                      alt={f.shortTitle}
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent" />
+                  </div>
+                  <div className="p-5 flex-1 flex flex-col">
+                    <h3 className="text-sm font-extrabold leading-snug text-white tracking-wide">{f.title}</h3>
+                    <p className="mt-3 text-[13px] leading-relaxed text-zinc-500">{f.desc}</p>
+                    {href && (
+                      <span className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-white">
+                        Conocer más
+                        <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                          <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                        </svg>
+                      </span>
+                    )}
+                  </div>
+                </article>
+              </Reveal>
+            );
+          })}
         </div>
       </div>
     </section>

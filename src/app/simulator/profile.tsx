@@ -91,6 +91,15 @@ export default function ProfilePageSimulator() {
     setConfirmPwd(cleanVal);
   };
 
+  const reset = () => {
+    if (!profile) return;
+    setName(`${profile.firstName} ${profile.lastName}`.trim());
+    setEmail(profile.email);
+    setPhone(profile.phoneNumber);
+    setOcupacion(profile.ocupacion || 'empleado');
+    setSuccessMessage('');
+  };
+
   const logout = () => {
     if (!confirm('¿Deseas cerrar sesión?')) return;
     AuthService.logout();
@@ -177,7 +186,7 @@ export default function ProfilePageSimulator() {
 
           <div style={{ marginTop: 20, display: 'flex', gap: 8 }}>
             <button onClick={save} style={{ background: '#7c3aed', border: 'none', color: '#fff', padding: '10px 14px', borderRadius: 10, cursor: 'pointer', fontWeight: 'bold' }}>Guardar cambios</button>
-            <button onClick={() => refetch()} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.06)', color: '#fff', padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>Restablecer</button>
+            <button onClick={reset} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.06)', color: '#fff', padding: '10px 14px', borderRadius: 10, cursor: 'pointer' }}>Restablecer</button>
           </div>
         </div>
 

@@ -5,6 +5,7 @@ dist/
 .figma/
 .env.local
 .env.production
+.vercel/
 
 # Dependencies
 node_modules/

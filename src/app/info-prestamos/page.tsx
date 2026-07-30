@@ -165,9 +165,11 @@ function Hero({ onSimulate }: { readonly onSimulate: () => void }) {
           <p className="text-sm font-medium text-zinc-400 uppercase tracking-widest mb-8">
             Financiación · Jes Bank
           </p>
-          <h1 className="text-6xl lg:text-8xl font-black text-black leading-none tracking-tight mb-8">
+          <h1 className="font-[family-name:var(--font-display)] text-4xl sm:text-5xl lg:text-6xl font-extrabold text-black leading-[1] tracking-tight mb-5">
             Préstamos<br />Jes Bank
           </h1>
+
+
           <p className="text-xl text-zinc-500 leading-relaxed max-w-xl mb-12">
             Desde $100.000 hasta $5.000.000, a un plazo de hasta 60 cuotas. Simula tu préstamo
             en minutos y mira tu tasa y tu cuota antes de aceptar nada.
@@ -228,7 +230,7 @@ function BenefitsSection() {
       <div className="max-w-6xl mx-auto">
         <div className="mb-16">
           <p className="text-xs font-semibold uppercase tracking-widest text-zinc-500 mb-4">Beneficios</p>
-          <h2 className="text-4xl lg:text-5xl font-black leading-tight">
+          <h2 className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white leading-tight tracking-tight mb-4">
             Pensado para que<br />tengas el control.
           </h2>
         </div>
@@ -321,9 +323,8 @@ function FAQItem({ q, a }: { readonly q: string; readonly a: string }) {
       >
         <span className="text-base font-bold text-black">{q}</span>
         <span
-          className={`flex-shrink-0 w-6 h-6 rounded-full border border-black/15 flex items-center justify-center text-sm transition-transform duration-300 ${
-            open ? 'rotate-45' : ''
-          }`}
+          className={`flex-shrink-0 w-6 h-6 rounded-full border border-black/15 flex items-center justify-center text-sm transition-transform duration-300 ${open ? 'rotate-45' : ''
+            }`}
         >
           +
         </span>

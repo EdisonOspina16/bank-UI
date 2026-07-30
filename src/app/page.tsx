@@ -8,9 +8,9 @@ import PremiumCard from '../components/landing/PremiumCard';
 import { Reveal } from '../components/landing/Reveal';
 
 const NAV_LINKS = [
-  { label: 'Personal', href: '#productos' },
-  { label: 'Empresas', href: '#planes' },
-  { label: 'Blog', href: '#app' },
+  { label: 'Blog', href: '#productos' },
+  { label: 'Tarjetas', href: '#planes' },
+  { label: 'Financiacion', href: '/info-prestamos' },
   { label: 'Ayuda', href: '#footer' },
 ];
 
@@ -171,29 +171,6 @@ function Hero({ onStart }: { readonly onStart: () => void }) {
   );
 }
 
-function StatsStrip() {
-  const stats = [
-    { n: '50M+', l: 'Clientes en el mundo' },
-    { n: '36+', l: 'Divisas disponibles' },
-    { n: '$0', l: 'Comisión por transferencia' },
-    { n: '4.9★', l: 'Valoración App Store' },
-  ];
-
-  return (
-    <section className="px-6 pb-20 bg-gradient-to-b from-zinc-50 to-white">
-      <Reveal className="max-w-6xl mx-auto">
-        <div className="rounded-[2rem] border border-black/[0.06] bg-white/80 backdrop-blur-sm px-6 py-10 sm:px-10 grid grid-cols-2 md:grid-cols-4 gap-8 shadow-[0_20px_60px_-40px_rgba(0,0,0,0.25)]">
-          {stats.map((s, i) => (
-            <div key={s.n} className="text-center md:text-left" style={{ transitionDelay: `${i * 80}ms` }}>
-              <p className="font-[family-name:var(--font-display)] text-3xl sm:text-4xl font-extrabold text-black mb-1 tracking-tight">{s.n}</p>
-              <p className="text-sm text-zinc-400 font-medium">{s.l}</p>
-            </div>
-          ))}
-        </div>
-      </Reveal>
-    </section>
-  );
-}
 
 function PhoneSection() {
   return (
@@ -634,7 +611,6 @@ export default function App() {
     <div className="bg-white text-black">
       <Navbar onEnter={handleEnter} />
       <Hero onStart={handleEnter} />
-      <StatsStrip />
       <PhoneSection />
       <FeatureList />
       <ExchangeSection />

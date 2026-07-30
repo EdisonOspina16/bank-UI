@@ -16,25 +16,25 @@ const NAV_LINKS = [
 
 const PLANS = [
   {
-    name: 'Estándar',
+    name: 'Clásica',
     price: 'Gratis',
-    features: ['Tarjeta virtual', 'Cambio hasta $1.000/mes', 'Transferencias gratis a Jes Bank'],
+    features: ['Gratis los primeros 3 meses, luego según tarifa vigente','Tarjeta virtual', 'Cupo desde $500.000 a $5.000.000', 'Transferencias gratis a Jes Bank'],
     cta: 'Empezar gratis',
     highlight: false,
   },
   {
-    name: 'Plus',
-    price: '$3,99',
+    name: 'JES ORO',
+    price: '$0',
     per: '/mes',
-    features: ['Tarjeta Virtual', 'Cambio ilimitado', 'Soporte prioritario', '1% cashback'],
+    features: ['Tarifa media, exonerable según nivel de consumo mensual','Tarjeta Virtual', 'Cupo desde $3.000.000 a $15.000.000', 'Soporte prioritario', '1% cashback'],
     cta: 'Obtener Plus',
     highlight: true,
   },
   {
-    name: 'Metal',
-    price: '$13,99',
+    name: 'JES PLATINUM',
+    price: '$0',
     per: '/mes',
-    features: ['Tarjeta Virtual', 'Cashback premium', 'Seguro de viaje', 'Acceso VIP aeropuertos'],
+    features: ['Tarifa Exonerada de forma permanente cumpliendo consumo mínimo mensua','Tarjeta Virtual', 'Cupo desde $15.000.000', 'Cashback premium', 'Seguro de viaje', 'Acceso VIP aeropuertos'],
     cta: 'Obtener Metal',
     highlight: false,
   },
@@ -156,15 +156,9 @@ function Hero({ onStart }: { readonly onStart: () => void }) {
           <div className="flex flex-col sm:flex-row gap-3">
             <button onClick={onStart} className="btn-premium inline-flex items-center justify-center gap-2.5 px-6 py-3.5 bg-black text-white text-sm font-semibold rounded-full shadow-[0_16px_40px_-18px_rgba(0,0,0,0.7)]">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
-              </svg>
-              App Store
-            </button>
-            <button onClick={onStart} className="btn-premium inline-flex items-center justify-center gap-2.5 px-6 py-3.5 border border-black/12 bg-white/70 backdrop-blur text-black text-sm font-semibold rounded-full hover:border-black/30 hover:bg-white">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                 <path d="M3.18 23.76a2 2 0 01-.69-1.54V1.77a2 2 0 01.69-1.53l.08-.07 12.45 12.44v.29L3.26 23.84zM20.3 16.1l-4.12-4.12 4.12-4.12 3.4 1.93a2 2 0 010 3.51zM3.18.24L15.62 12.7l-4.12 4.12L3.18.24z" />
-              </svg>
-              Google Play
+                </svg>
+              Inicia ahora
             </button>
           </div>
         </div>
@@ -575,16 +569,13 @@ function AppDownload() {
           }} />
           <div className="max-w-lg relative">
             <h2 className="font-[family-name:var(--font-display)] text-4xl lg:text-5xl font-extrabold leading-[1.05] mb-5 tracking-tight">
-              Descarga la app<br />y empieza hoy.
+              Regístrate en la web <br />y empieza ya.
             </h2>
             <p className="text-zinc-400 text-lg">Crea tu cuenta en menos de 5 minutos. Sin papeleos, sin filas.</p>
           </div>
           <div className="flex flex-col gap-3 w-full lg:w-auto relative">
             <a href="#" className="btn-premium flex items-center justify-center gap-3 px-8 py-4 bg-white text-black rounded-full text-sm font-bold min-w-52">
-              Descargar en App Store
-            </a>
-            <a href="#" className="btn-premium flex items-center justify-center gap-3 px-8 py-4 border border-white/20 text-white rounded-full text-sm font-bold hover:border-white/50 min-w-52">
-              Descargar en Google Play
+              Inicia ahora
             </a>
           </div>
         </div>
